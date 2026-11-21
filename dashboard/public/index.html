@@ -199,7 +199,7 @@ async function selectDashboardServer(guild,me,button){
  }catch(error){$("server-picker-note").textContent=error.message;button.disabled=false;button.textContent="Manage";}
 }
 $("refresh-servers").addEventListener("click",()=>{if(window.sentinelMe)loadServerGroups(window.sentinelMe);});
-Promise.all([fetch("/api/health").then(r=>r.json()),fetch("/api/me").then(r=>r.ok?r.json():null)]).then(([health,me])=>{
+Promise.all([fetch("/api/health").then(r=>r.json()),fetch("/api/me").then(r=>r.ok?r.json():null)]).then(async ([health,me])=>{
  const status=$("connection-status"),note=document.querySelector(".notice"),login=$("discord-login");
  if(!health.oauthConfigured){status.textContent="● Preview mode · OAuth setup needed";note.textContent="Add Discord OAuth credentials and a long random SESSION_SECRET to the private .env file. Never put your bot token in browser code.";}
  if(me&&me.authenticated){
