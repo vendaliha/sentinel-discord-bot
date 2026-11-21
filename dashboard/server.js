@@ -118,7 +118,29 @@ app.get("/auth/discord/callback", async (req, res) => {
 
 app.get("/api/me", (req, res) => {
   if (!req.session.discordUser) return res.status(401).json({ authenticated: false });
-  res.json({ authenticated: true, user: req.session.discordUser, guilds: req.session.discordGuilds || [] });
+  if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  res.json({
+    authenticated: true,
+    user: req.session.discordUser,
+    guilds: req.session.discordGuilds || [],
+    selectedGuild: req.session.selectedGuild || null,
+    csrfToken: req.session.csrfToken
+  });
+});
+
+app.post("/api/select-server", (req, res) => {
+  if (!req.session.discordUser) return res.status(401).json({ error: "Sign in with Discord first." });
+  const suppliedToken = req.get("x-csrf-token");
+  if (!suppliedToken || suppliedToken !== req.session.csrfToken) {
+    return res.status(403).json({ error: "Your session could not be verified. Refresh and try again." });
+  }
+
+  const guildId = typeof req.body.guildId === "string" ? req.body.guildId : "";
+  const guild = (req.session.discordGuilds || []).find(item => item.id === guildId && item.canManage === true);
+  if (!guild) return res.status(403).json({ error: "You can only select servers where you have Administrator permission." });
+
+  req.session.selectedGuild = { id: guild.id, name: guild.name, icon: guild.icon || null };
+  res.json({ ok: true, selectedGuild: req.session.selectedGuild });
 });
 
 app.post("/auth/logout", (req, res) => {
