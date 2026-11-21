@@ -1,70 +1,50 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090909">
-  <title>Sentinel | Control Panel</title>
-  <style>
-    :root { color-scheme: dark; --bg:#090909; --panel:#111; --panel2:#171717; --line:#292929; --muted:#929292; --silver:#d7d7d7; --white:#f5f5f5; }
-    * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 75% -15%, #292929 0, transparent 42%),var(--bg); color:var(--white); font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    .shell { display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
-    aside { border-right:1px solid var(--line); padding:26px 18px; background:#0b0b0b; }
-    .brand { display:flex; align-items:center; gap:12px; padding:4px 8px 28px; border-bottom:1px solid var(--line); }
-    .mark { width:43px;height:43px;border:1px solid #777;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#303030,#080808);font-weight:900;font-size:25px;color:#eee;text-shadow:0 1px 8px #aaa; }
-    .brand strong { letter-spacing:.19em; font-size:15px; }.brand small { display:block;color:var(--muted);letter-spacing:.22em;font-size:9px;margin-top:2px; }
-    nav { padding-top:25px; }.nav-label { color:#666;font-size:10px;letter-spacing:.18em;padding:0 11px 10px; }
-    nav a { display:flex;gap:12px;align-items:center;padding:10px 12px;margin:3px 0;border-radius:8px;color:#aaa;text-decoration:none; }
-    nav a.active,nav a:hover { background:#202020;color:#fff;box-shadow:inset 2px 0 #cfcfcf; }
-    main { padding:38px clamp(22px,5vw,64px);max-width:1500px;width:100%;margin:0 auto; }
-    .top { display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:38px; }
-    .eyebrow { color:#888;letter-spacing:.2em;text-transform:uppercase;font-size:10px; }
-    h1 { margin:7px 0 5px;font-size:clamp(28px,4vw,42px);letter-spacing:-.04em; }
-    .sub { color:var(--muted);margin:0; }
-    .pill { border:1px solid #343434;border-radius:99px;padding:7px 12px;color:#bbb;background:#121212;font-size:12px; }
-    .hero { border:1px solid #383838;border-radius:16px;padding:28px;background:linear-gradient(115deg,#1c1c1c,#101010 65%,#181818);position:relative;overflow:hidden; }
-    .hero:after { content:"S";position:absolute;right:35px;top:-70px;font-size:260px;font-weight:900;color:#fff;opacity:.025;transform:skew(-12deg);pointer-events:none; }
-    .hero h2 { margin:0 0 8px;font-size:22px; }.hero p { margin:0;color:#aaa;max-width:600px; }
-    .grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px; }
-    .card { border:1px solid var(--line);border-radius:12px;background:linear-gradient(145deg,#151515,#101010);padding:19px;min-height:120px; }
-    .card span { color:#888;font-size:12px; }.card strong { display:block;font-size:22px;margin-top:12px; }
-    .section { margin-top:32px;display:flex;justify-content:space-between;align-items:center;gap:12px; }.section h2 { font-size:16px;margin:0; }
-    .notice { margin-top:14px;padding:14px 16px;border:1px solid #303030;background:#111;border-radius:10px;color:#aaa; }
-    button { border:1px solid #aaa;background:#ddd;color:#111;border-radius:8px;padding:10px 15px;font-weight:700;cursor:pointer; }
-    button:hover { background:#fff; }
-    footer { margin-top:42px;color:#666;font-size:11px;letter-spacing:.08em; }
-    @media(max-width:760px){.shell{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);padding:14px}.brand{padding-bottom:12px}nav{display:flex;overflow:auto;padding-top:12px}.nav-label{display:none}nav a{white-space:nowrap}main{padding:25px 16px}.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#09090b">
+<title>Sentinel — Control Centre</title>
+<style>
+:root{color-scheme:dark;--bg:#09090b;--panel:#111114;--panel2:#17171c;--line:#292930;--muted:#898992;--text:#f2f2f4;--silver:#d6d6dc;--purple:#8b5cf6;--purple2:#6d45c5}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -20%,#29213c 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button{font:inherit}.layout{min-height:100vh;display:grid;grid-template-columns:250px minmax(0,1fr)}aside{background:#0c0c0f;border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:12px;padding:3px 9px 24px;border-bottom:1px solid var(--line)}.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#292432,#101014);border:1px solid #514568;color:#e9ddff;font-weight:900;font-size:25px;box-shadow:0 0 24px #8b5cf622}.brand b{letter-spacing:.2em;font-size:14px}.brand small{display:block;color:#85818f;font-size:9px;letter-spacing:.22em}.nav-label{margin:25px 10px 9px;color:#696872;font-size:10px;letter-spacing:.18em}nav{display:grid;gap:4px}nav button{border:0;background:transparent;color:#a5a3ad;text-align:left;padding:11px 12px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:12px}nav button:hover{background:#1b1a20;color:white}nav button.active{background:linear-gradient(90deg,#282033,#19171f);color:#fff;box-shadow:inset 2px 0 var(--purple)}.ico{width:18px;text-align:center;color:#aaa3b8;font-size:16px}.side-bottom{margin-top:auto;border:1px solid var(--line);border-radius:12px;padding:13px;color:#999;font-size:11px;background:#111115}.side-bottom strong{color:#ddd;display:block;font-size:12px;margin-bottom:4px}main{padding:34px clamp(18px,4vw,56px);max-width:1500px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}.eyebrow{font-size:10px;letter-spacing:.2em;color:#9c91b0;text-transform:uppercase}.top h1{font-size:clamp(27px,3.5vw,39px);letter-spacing:-.045em;margin:5px 0}.sub{margin:0;color:var(--muted)}.status{border:1px solid #443b53;border-radius:99px;padding:8px 12px;color:#c9b7e9;background:#17131f;font-size:11px;white-space:nowrap}.hero{position:relative;overflow:hidden;border:1px solid #393342;border-radius:16px;padding:27px;background:linear-gradient(112deg,#211b2b,#141318 58%,#17151d)}.hero:after{content:"S";position:absolute;right:35px;top:-105px;font-size:300px;font-weight:900;color:#fff;opacity:.035;pointer-events:none}.hero h2{font-size:23px;margin:7px 0}.hero p{max-width:660px;color:#b7b2c0;margin:0}.hero-actions{display:flex;gap:10px;margin-top:19px;flex-wrap:wrap}.btn{border:1px solid #5a4a70;border-radius:8px;padding:9px 14px;background:#292135;color:#eee;font-weight:650;cursor:pointer}.btn.secondary{background:#17171c;border-color:#36343d;color:#c9c7cf}.btn:disabled{opacity:.5;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:15px}.stat,.panel{border:1px solid var(--line);border-radius:12px;background:linear-gradient(145deg,#151519,#101013);padding:18px}.stat label{color:#8d8b96;font-size:10px;letter-spacing:.13em}.stat strong{display:block;font-size:21px;margin-top:9px}.stat small{color:#777581}.section-head{display:flex;justify-content:space-between;align-items:center;margin:29px 0 12px}.section-head h2{font-size:16px;margin:0}.section-head span{font-size:11px;color:#777}.modules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.module{border:1px solid var(--line);border-radius:11px;padding:16px;background:#111115;min-height:115px}.module .symbol{font-size:18px;color:#c4a9f6}.module b{display:block;margin:9px 0 3px}.module small{color:#898691}.notice{margin-top:17px;border:1px solid #40374c;background:#17131e;border-radius:10px;padding:13px 15px;color:#b8afc5;font-size:12px}.page{display:none}.page.active{display:block}.placeholder{padding:26px;border:1px solid var(--line);border-radius:13px;background:#111115;color:#aaa}.placeholder h2{color:#eee;margin:0 0 7px}.placeholder p{margin:0;max-width:650px}.footer{margin-top:35px;color:#62616a;font-size:10px;letter-spacing:.12em}.mobile-head{display:none}
+@media(max-width:850px){.layout{grid-template-columns:1fr}aside{padding:13px;border-right:0;border-bottom:1px solid var(--line)}.brand{padding-bottom:12px}nav{display:flex;overflow:auto;padding-top:12px}nav button{white-space:nowrap;padding:9px 11px}.nav-label,.side-bottom{display:none}main{padding:24px 16px}.modules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.stats{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.status{white-space:normal}.hero{padding:21px}.modules{grid-template-columns:1fr 1fr}}
+</style>
 </head>
-<body>
-  <div class="shell">
-    <aside>
-      <div class="brand"><div class="mark">S</div><div><strong>SENTINEL</strong><small>CONTROL PANEL</small></div></div>
-      <nav aria-label="Main navigation">
-        <div class="nav-label">WORKSPACE</div>
-        <a class="active" href="#">▦ &nbsp; Overview</a>
-        <a href="#">◈ &nbsp; Moderation</a>
-        <a href="#">♙ &nbsp; Permissions</a>
-        <a href="#">◇ &nbsp; Security</a>
-        <a href="#">▤ &nbsp; Logs</a>
-        <a href="#">▣ &nbsp; Tickets</a>
-        <a href="#">✧ &nbsp; Giveaways</a>
-        <a href="#">⚙ &nbsp; Settings</a>
-      </nav>
-    </aside>
-    <main>
-      <div class="top"><div><div class="eyebrow">SENTINEL / WORKSPACE</div><h1>Control overview</h1><p class="sub">Your server operations, in one place.</p></div><span class="pill">● &nbsp; Dashboard preview</span></div>
-      <section class="hero"><div class="eyebrow">COMMAND CENTER</div><h2>Welcome to Sentinel.</h2><p>A central place to manage moderation, staff permissions, security, tickets and community tools. Connect Discord to activate your workspace.</p></section>
-      <div class="grid">
-        <div class="card"><span>BOT CONNECTION</span><strong>Not connected</strong></div>
-        <div class="card"><span>SERVER</span><strong>Not selected</strong></div>
-        <div class="card"><span>MODULES</span><strong>Ready to configure</strong></div>
-      </div>
-      <div class="section"><h2>Get started</h2><button type="button" disabled title="Discord OAuth setup is not configured yet">Discord login — coming next</button></div>
-      <div class="notice">This is the visual starter only. Discord OAuth2, server permissions, live bot data, SQLite integration and dashboard actions still need to be implemented and security-tested.</div>
-      <footer> SENTINEL CONTROL PANEL · PRIVATE SERVER MANAGEMENT </footer>
-    </main>
-  </div>
-</body>
-</html>
+<body><div class="layout">
+<aside><div class="brand"><div class="logo">S</div><div><b>SENTINEL</b><small>CONTROL CENTRE</small></div></div>
+<div class="nav-label">WORKSPACE</div><nav aria-label="Dashboard navigation">
+<button class="active" data-page="overview"><span class="ico">⌂</span>Overview</button>
+<button data-page="moderation"><span class="ico">◈</span>Moderation</button>
+<button data-page="permissions"><span class="ico">♙</span>Permissions</button>
+<button data-page="security"><span class="ico">⬡</span>Security</button>
+<button data-page="logs"><span class="ico">▤</span>Audit logs</button>
+<div class="nav-label">COMMUNITY</div>
+<button data-page="tickets"><span class="ico">▣</span>Tickets</button>
+<button data-page="giveaways"><span class="ico">✧</span>Giveaways</button>
+<button data-page="settings"><span class="ico">⚙</span>Settings</button></nav>
+<div class="side-bottom"><strong>Sentinel workspace</strong>Private server management<br>Discord connection not configured</div></aside>
+<main>
+<div class="top"><div><div class="eyebrow">SENTINEL / WORKSPACE</div><h1 id="page-title">Control overview</h1><p class="sub">A clear view of your server operations.</p></div><span class="status">● Preview mode · not connected to Discord</span></div>
+<section class="page active" id="overview">
+<div class="hero"><div class="eyebrow">COMMAND CENTRE</div><h2>Stay in control.</h2><p>Manage moderation, staff access and community tools from one place. Connect your Discord application to turn this preview into a live control panel.</p><div class="hero-actions"><button class="btn" disabled title="Discord OAuth2 has not been configured">Connect Discord · setup required</button><button class="btn secondary" data-jump="settings">View setup requirements</button></div></div>
+<div class="stats"><div class="stat"><label>BOT STATUS</label><strong>Not connected</strong><small>Live status will appear here</small></div><div class="stat"><label>SERVER</label><strong>Not selected</strong><small>Choose a server after Discord login</small></div><div class="stat"><label>DATA SOURCE</label><strong>Preview only</strong><small>No live database changes are made</small></div></div>
+<div class="section-head"><h2>Management modules</h2><span>Dashboard sections</span></div><div class="modules">
+<div class="module"><span class="symbol">◈</span><b>Moderation</b><small>Warnings, mutes and blacklist</small></div><div class="module"><span class="symbol">♙</span><b>Permissions</b><small>Command and staff roles</small></div><div class="module"><span class="symbol">⬡</span><b>Security</b><small>Protection and access controls</small></div><div class="module"><span class="symbol">▤</span><b>Audit logs</b><small>Review staff actions</small></div><div class="module"><span class="symbol">▣</span><b>Tickets</b><small>Support panel configuration</small></div><div class="module"><span class="symbol">✧</span><b>Giveaways</b><small>Create and manage giveaways</small></div><div class="module"><span class="symbol">⌘</span><b>Server tools</b><small>Community utilities</small></div><div class="module"><span class="symbol">⚙</span><b>Settings</b><small>Configure the dashboard</small></div></div>
+<div class="notice">Preview mode: these controls are visual only for now. Discord OAuth, permission checks and the bot's SQLite integration must be completed before dashboard actions can change your server.</div>
+</section>
+<section class="page" id="moderation"><div class="placeholder"><h2>Moderation</h2><p>Warnings, mute history, blacklist records and member actions will appear here after secure Discord and database integration.</p></div></section>
+<section class="page" id="permissions"><div class="placeholder"><h2>Command permissions</h2><p>Configure which Discord roles can run each Sentinel command. Changes will be protected by Discord server permissions.</p></div></section>
+<section class="page" id="security"><div class="placeholder"><h2>Security</h2><p>Security settings and protection status will be shown here once the bot connection is active.</p></div></section>
+<section class="page" id="logs"><div class="placeholder"><h2>Audit logs</h2><p>Staff actions and dashboard changes will be recorded here with timestamps and responsible users.</p></div></section>
+<section class="page" id="tickets"><div class="placeholder"><h2>Tickets</h2><p>Ticket panels, support roles and transcript settings will be managed here.</p></div></section>
+<section class="page" id="giveaways"><div class="placeholder"><h2>Giveaways</h2><p>Create and review giveaways after the dashboard is connected to the running bot.</p></div></section>
+<section class="page" id="settings"><div class="placeholder"><h2>Setup requirements</h2><p>Next steps: configure Discord OAuth2 credentials, set a secure session secret, verify the existing bot database schema, then connect dashboard APIs with server-side permission checks. Never place your bot token in browser code.</p></div></section>
+<div class="footer">SENTINEL CONTROL CENTRE · PRIVATE SERVER MANAGEMENT</div>
+</main></div>
+<script>
+const titles={overview:"Control overview",moderation:"Moderation",permissions:"Command permissions",security:"Security",logs:"Audit logs",tickets:"Tickets",giveaways:"Giveaways",settings:"Dashboard setup"};
+function showPage(name){if(!titles[name])return;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===name));document.querySelectorAll("nav button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));document.getElementById("page-title").textContent=titles[name];}
+document.querySelectorAll("nav button[data-page]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
+document.querySelectorAll("[data-jump]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.jump)));
+fetch("/api/health").then(r=>r.json()).then(data=>{document.title="Sentinel — Control Centre";}).catch(()=>{});
+</script></body></html>
