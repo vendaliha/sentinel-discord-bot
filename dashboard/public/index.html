@@ -21,6 +21,7 @@
 <button data-page="moderation"><span class="ico">◈</span>Moderation</button>
 <button data-page="permissions"><span class="ico">♙</span>Permissions</button>
 <button data-page="security"><span class="ico">⬡</span>Security</button>
+<button data-page="whitelist"><span class="ico">✓</span>Whitelist</button>
 <button data-page="logs"><span class="ico">▤</span>Audit logs</button>
 <div class="nav-label">COMMUNITY</div>
 <button data-page="panels"><span class="ico">▣</span>Panel Configs</button>
@@ -39,6 +40,7 @@
 <section class="page" id="moderation"><div class="placeholder"><h2>Moderation</h2><p>Warnings, mute history, blacklist records and member actions will appear here after secure Discord and database integration.</p></div></section>
 <section class="page" id="permissions"><div class="placeholder"><h2>Command permissions</h2><p>Configure which Discord roles can run each Sentinel command. Changes will be protected by Discord server permissions.</p></div></section>
 <section class="page" id="security"><div class="placeholder"><h2>Security</h2><p>Security settings and protection status will be shown here once the bot connection is active.</p></div></section>
+<section class="page" id="whitelist"><div class="section-head"><h2>Anti-Nuke Whitelist</h2><span>Members exempt from automatic anti-nuke blacklisting</span></div><div class="panel"><div class="section-head"><h2>Whitelisted members</h2><span id="whitelist-count">Live data not connected</span></div><div class="table-wrap" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr style="color:#aaa;font-size:11px"><th style="padding:12px;border-bottom:1px solid var(--line)">MEMBER</th><th style="padding:12px;border-bottom:1px solid var(--line)">DISCORD USER ID</th><th style="padding:12px;border-bottom:1px solid var(--line)">STATUS</th></tr></thead><tbody id="whitelist-rows"><tr><td colspan="3" style="padding:18px;color:var(--muted)">Connect Sentinel to your Discord server to load its anti-nuke whitelist.</td></tr></tbody></table></div><p class="helper" style="margin-top:14px">This list will read the existing anti_nuke_whitelist records for the selected server. Add/remove controls will only be enabled for staff authorised to manage the bot\u2019s anti-nuke whitelist.</p></div></section>
 <section class="page" id="logs"><div class="placeholder"><h2>Audit logs</h2><p>Staff actions and dashboard changes will be recorded here with timestamps and responsible users.</p></div></section>
 <section class="page" id="panels">
 <div class="section-head"><h2>Panel Configurations</h2><span>Design the ticket panel your members see in Discord</span></div>
@@ -75,7 +77,7 @@
 <div class="footer">SENTINEL CONTROL CENTRE · PRIVATE SERVER MANAGEMENT</div>
 </main></div>
 <script>
-const titles={overview:"Control overview",moderation:"Moderation",permissions:"Command permissions",security:"Security",logs:"Audit logs",panels:"Panel Configs",giveaways:"Giveaways",settings:"Dashboard setup"};
+const titles={overview:"Control overview",moderation:"Moderation",permissions:"Command permissions",security:"Security",whitelist:"Anti-Nuke Whitelist",logs:"Audit logs",panels:"Panel Configs",giveaways:"Giveaways",settings:"Dashboard setup"};
 function showPage(name){if(!titles[name])return;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===name));document.querySelectorAll("nav button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));document.getElementById("page-title").textContent=titles[name];}
 document.querySelectorAll("nav button[data-page]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
 document.querySelectorAll("[data-jump]").forEach(b=>{const go=()=>showPage(b.dataset.jump);b.addEventListener("click",go);b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});});
