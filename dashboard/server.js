@@ -95,12 +95,19 @@ app.get("/auth/discord/callback", async (req, res) => {
     if (!guildResponse.ok || !Array.isArray(guilds)) return res.status(502).send("Could not retrieve your Discord servers.");
 
     req.session.discordUser = { id: user.id, username: user.username, global_name: user.global_name || user.username, avatar: user.avatar };
-    req.session.discordGuilds = guilds
-      .filter(g => {
-        try { const p = BigInt(g.permissions || "0"); return (p & 0x20n) === 0x20n || (p & 0x8n) === 0x8n; }
-        catch { return false; }
-      })
-      .map(g => ({ id: g.id, name: g.name, icon: g.icon }));
+    req.session.discordGuilds = guilds.map(g => {
+      let canManage = false;
+      try {
+        const permissions = BigInt(g.permissions || "0");
+        canManage = (permissions & 0x20n) === 0x20n || (permissions & 0x8n) === 0x8n;
+      } catch {}
+      return {
+        id: g.id,
+        name: g.name,
+        icon: g.icon,
+        canManage
+      };
+    });
     req.session.discordAccessToken = tokens.access_token;
     res.redirect("/");
   } catch (err) {
