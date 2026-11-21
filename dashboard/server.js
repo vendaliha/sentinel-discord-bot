@@ -128,6 +128,49 @@ app.get("/api/me", (req, res) => {
   });
 });
 
+
+app.get("/api/servers", async (req, res) => {
+  if (!req.session.discordUser) return res.status(401).json({ error: "Sign in with Discord first." });
+  if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString("hex");
+  const adminGuilds = (req.session.discordGuilds || []).filter(guild => guild.canManage === true);
+  const botToken = process.env.DISCORD_BOT_TOKEN || process.env.BOT_TOKEN;
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  const guilds = await Promise.all(adminGuilds.map(async guild => {
+    let botInstalled = null;
+    if (botToken) {
+      try {
+        const response = await fetch("https://discord.com/api/v10/guilds/" + encodeURIComponent(guild.id), {
+          headers: { Authorization: "Bot " + botToken }
+        });
+        if (response.ok) botInstalled = true;
+        else if (response.status === 403 || response.status === 404) botInstalled = false;
+        else console.error("Sentinel guild check returned:", response.status);
+      } catch (error) {
+        console.error("Sentinel guild check failed:", error.message);
+      }
+    }
+    const inviteParams = new URLSearchParams({
+      client_id: clientId || "",
+      scope: "bot applications.commands",
+      guild_id: guild.id,
+      disable_guild_select: "true",
+      permissions: process.env.DISCORD_BOT_PERMISSIONS || "0"
+    });
+    return {
+      ...guild,
+      botInstalled,
+      inviteUrl: clientId ? "https://discord.com/oauth2/authorize?" + inviteParams.toString() : null
+    };
+  }));
+  res.set("Cache-Control", "no-store");
+  res.json({
+    guilds,
+    botCheckConfigured: Boolean(botToken),
+    inviteConfigured: Boolean(clientId),
+    csrfToken: req.session.csrfToken
+  });
+});
+
 app.post("/api/select-server", (req, res) => {
   if (!req.session.discordUser) return res.status(401).json({ error: "Sign in with Discord first." });
   const suppliedToken = req.get("x-csrf-token");
