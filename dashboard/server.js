@@ -154,7 +154,7 @@ app.get("/api/servers", async (req, res) => {
       scope: "bot applications.commands",
       guild_id: guild.id,
       disable_guild_select: "true",
-      permissions: process.env.DISCORD_BOT_PERMISSIONS || "0"
+      permissions: process.env.DISCORD_BOT_PERMISSIONS || "1100317060246"
     });
     return {
       ...guild,
