@@ -99,7 +99,7 @@ app.get("/auth/discord/callback", async (req, res) => {
       let canManage = false;
       try {
         const permissions = BigInt(g.permissions || "0");
-        canManage = (permissions & 0x20n) === 0x20n || (permissions & 0x8n) === 0x8n;
+        canManage = (permissions & 0x8n) === 0x8n;
       } catch {}
       return {
         id: g.id,
