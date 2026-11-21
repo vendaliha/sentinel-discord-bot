@@ -12,6 +12,9 @@
 .panel-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#111115;margin-bottom:14px}.panel-toolbar>div{flex:1;max-width:420px}.panel-toolbar-actions{display:flex;gap:9px;flex-wrap:wrap}.panel-toolbar-actions .btn{white-space:nowrap}.builder-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr);gap:14px;align-items:start}.builder-main{display:grid;gap:14px}.builder-main .panel{padding:18px}.field-label{display:block;color:#c9c5d1;font-size:12px;margin:13px 0 6px}.field{width:100%;border:1px solid #393342;border-radius:8px;background:#0d0d12;color:#eee;padding:10px 11px;font:inherit;min-width:0}.field:focus{outline:1px solid var(--purple);border-color:var(--purple)}textarea.field{resize:vertical}.two-fields{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px}.colour-field{height:41px;padding:4px}.editor-list{display:grid;gap:8px;margin:12px 0}.editor-row,.question-row{display:flex;gap:8px;align-items:center}.remove-option,.remove-question{border:1px solid #49333b;background:#21151a;color:#ff9aa9;border-radius:8px;width:40px;height:40px;font-size:20px;cursor:pointer}.question-type{max-width:145px}.preview-column{position:sticky;top:18px}.preview-panel{padding:18px}.discord-preview{display:flex;border:1px solid #363943;border-radius:9px;overflow:hidden;background:#303339;min-height:185px}.preview-accent{width:4px;background:#8054d6;flex:none}.preview-content{padding:14px;min-width:0}.preview-author{font-size:10px;font-weight:750;letter-spacing:.1em;color:#d0c5e8}.preview-content h3{font-size:17px;margin:10px 0 6px}.preview-content p{color:#c7c9ce;font-size:12px;white-space:pre-wrap}.preview-select{margin-top:15px;background:#202329;border:1px solid #454954;border-radius:7px;padding:10px 12px;display:flex;justify-content:space-between;color:#d9dbe0;font-size:12px}.preview-footer{margin-top:14px;padding-top:9px;border-top:1px solid #454954;color:#aeb1b8;font-size:10px}.publish-btn{width:100%;margin-top:15px;background:linear-gradient(110deg,#5c3b9d,#8054d6);border-color:#9672d3}.helper{color:#85818f;font-size:11px;line-height:1.5}.module[data-jump]{cursor:pointer}.module[data-jump]:hover{border-color:#6e529b;transform:translateY(-1px)}
 @media(max-width:1050px){.builder-grid{grid-template-columns:1fr}.preview-column{position:static}}
 @media(max-width:600px){.panel-toolbar{align-items:stretch;flex-direction:column}.two-fields{grid-template-columns:1fr}.question-row{flex-wrap:wrap}.question-type{max-width:none;flex:1}.preview-panel{padding:13px}}
+
+.server-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:12px}.server-group{min-width:0;border:1px solid var(--line);background:#111115;border-radius:12px;padding:15px}.server-group-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.server-group-head h3{font-size:14px;margin:0}.server-group-head p{font-size:11px;color:var(--muted);margin:3px 0 0}.server-count{display:grid;place-items:center;min-width:27px;height:27px;padding:0 7px;border-radius:8px;background:#27232e;color:#d9c9f3;font-size:12px}.server-list{display:grid;gap:8px}.server-card{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid #2b2932;border-radius:9px;background:#17171c}.server-avatar{width:36px;height:36px;flex:none;border-radius:11px;display:grid;place-items:center;background:#292431;color:#d9c8f4;font-weight:750;overflow:hidden}.server-avatar img{width:100%;height:100%;object-fit:cover}.server-info{min-width:0;flex:1}.server-info strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.server-info small{color:#85818f;font-size:10px}.server-action{flex:none;text-decoration:none;font-size:11px;padding:7px 9px;border-radius:7px;border:1px solid #594578;background:#292135;color:#e5d8fa;cursor:pointer}.server-action:hover{background:#382a4b}.server-action.invite{border-color:#3e3b46;background:#1d1d23;color:#d4d1dc}.server-empty{font-size:11px;color:#85818f;padding:9px 2px;margin:0}.server-list-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}.server-list-footer .helper{margin:0}.server-list-footer .btn{font-size:11px;padding:7px 10px}
+@media(max-width:650px){.server-groups{grid-template-columns:1fr}.server-list-footer{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body><div class="layout">
@@ -34,7 +37,13 @@
 <main>
 <div class="top"><div><div class="eyebrow">SENTINEL / WORKSPACE</div><h1 id="page-title">Control overview</h1><p class="sub">A clear view of your server operations.</p></div><span class="status" id="connection-status">● Checking connection…</span></div>
 <section class="page active" id="overview">
-<div class="hero"><div class="eyebrow">COMMAND CENTRE</div><h2>Stay in control.</h2><p>Manage moderation, staff access and community tools from one place. Connect your Discord application to turn this preview into a live control panel.</p><div class="hero-actions"><a class="btn" id="discord-login" href="/auth/discord" style="text-decoration:none">Continue with Discord</a><button class="btn secondary" data-jump="settings">View setup requirements</button></div><div id="server-picker" style="display:none;margin-top:20px;max-width:520px"><label class="field-label" for="server-select">Choose a server you administer</label><select class="field" id="server-select"><option value="">Select a server</option></select><p class="helper" id="server-picker-note">Only servers where you have the Discord Administrator permission will appear here.</p></div></div>
+<div class="hero"><div class="eyebrow">COMMAND CENTRE</div><h2>Stay in control.</h2><p>Manage moderation, staff access and community tools from one place. Connect your Discord application to turn this preview into a live control panel.</p><div class="hero-actions"><a class="btn" id="discord-login" href="/auth/discord" style="text-decoration:none">Continue with Discord</a><button class="btn secondary" data-jump="settings">View setup requirements</button></div><div id="server-picker" style="display:none;margin-top:22px">
+<div class="server-groups">
+<section class="server-group"><div class="server-group-head"><div><h3>Servers with Sentinel</h3><p>Ready to manage from your dashboard</p></div><span class="server-count" id="installed-count">0</span></div><div class="server-list" id="installed-servers"><p class="server-empty">Loading your servers…</p></div></section>
+<section class="server-group"><div class="server-group-head"><div><h3>Servers without Sentinel</h3><p>Invite the bot to get started</p></div><span class="server-count" id="missing-count">0</span></div><div class="server-list" id="missing-servers"><p class="server-empty">Checking bot installation…</p></div></section>
+</div>
+<div class="server-list-footer"><p class="helper" id="server-picker-note">Only servers where your Discord account has Administrator permission are shown.</p><button class="btn secondary" id="refresh-servers" type="button">↻ Refresh servers</button></div>
+</div></div>
 <div class="stats"><div class="stat"><label>BOT STATUS</label><strong>Not connected</strong><small>Bot presence check is the next integration step</small></div><div class="stat"><label>SELECTED SERVER</label><strong id="selected-server-name">Not selected</strong><small id="selected-server-detail">Sign in and choose an Administrator server</small></div><div class="stat"><label>DATA SOURCE</label><strong>Preview only</strong><small>Server selection is saved to your session; settings are not live yet</small></div></div>
 <div class="section-head"><h2>Management modules</h2><span>Dashboard sections</span></div><div class="modules">
 <div class="module"><span class="symbol">◈</span><b>Moderation</b><small>Warnings, mutes and blacklist</small></div><div class="module"><span class="symbol">♙</span><b>Permissions</b><small>Command and staff roles</small></div><div class="module"><span class="symbol">⬡</span><b>Security</b><small>Protection and access controls</small></div><div class="module"><span class="symbol">▤</span><b>Audit logs</b><small>Review staff actions</small></div><div class="module" data-jump="panels" role="button" tabindex="0"><span class="symbol">▣</span><b>Panel Configs</b><small>Build ticket panels and forms</small></div><div class="module"><span class="symbol">✧</span><b>Giveaways</b><small>Create and manage giveaways</small></div><div class="module"><span class="symbol">⌘</span><b>Server tools</b><small>Community utilities</small></div><div class="module"><span class="symbol">⚙</span><b>Settings</b><small>Configure the dashboard</small></div></div>
@@ -136,5 +145,69 @@ $("edit-panel").addEventListener("click",()=>{const selected=$("panel-select").s
 $("new-panel").addEventListener("click",()=>{$("panel-edit-status").textContent="New panel mode is a preview only. Save and publish will be enabled after dashboard storage and bot integration are connected.";$("publish-note").textContent="Panel templates can be saved once the dashboard's storage and bot integration are connected.";});
 $("publish-panel").addEventListener("click",()=>{$("publish-note").textContent="Not published: Sentinel's Discord bot connection is not configured yet. Your design preview is working, but no Discord message has been changed.";});
 updatePreview();
-Promise.all([fetch("/api/health").then(r=>r.json()),fetch("/api/me").then(r=>r.ok?r.json():null)]).then(([health,me])=>{const status=document.getElementById("connection-status");const note=document.querySelector(".notice");const login=document.getElementById("discord-login");if(!health.oauthConfigured){status.textContent="● Preview mode · OAuth setup needed";note.textContent="Add Discord OAuth credentials and a long random SESSION_SECRET to the private .env file. Never put your bot token in browser code.";}if(me&&me.authenticated){const adminGuilds=(me.guilds||[]).filter(g=>g.canManage===true);status.textContent="● Signed in as "+me.user.username;login.textContent="Signed in · "+adminGuilds.length+" administrator servers";login.href="#";note.textContent="Your server list is restricted to servers where your Discord account has Administrator permission. Select one to set your active dashboard workspace.";const picker=document.getElementById("server-picker");const select=document.getElementById("server-select");picker.style.display="block";adminGuilds.sort((a,b)=>a.name.localeCompare(b.name)).forEach(g=>{const option=document.createElement("option");option.value=g.id;option.textContent=g.name;select.append(option);});if(!adminGuilds.length){select.disabled=true;document.getElementById("server-picker-note").textContent="No servers with Administrator permission were found for this Discord account.";}if(me.selectedGuild&&adminGuilds.some(g=>g.id===me.selectedGuild.id)){select.value=me.selectedGuild.id;document.getElementById("selected-server-name").textContent=me.selectedGuild.name;document.getElementById("selected-server-detail").textContent="Active workspace selected";}select.addEventListener("change",async()=>{if(!select.value)return;select.disabled=true;document.getElementById("server-picker-note").textContent="Saving your server selection…";try{const response=await fetch("/api/select-server",{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":me.csrfToken},body:JSON.stringify({guildId:select.value})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not select this server.");document.getElementById("selected-server-name").textContent=result.selectedGuild.name;document.getElementById("selected-server-detail").textContent="Active workspace selected";document.getElementById("server-picker-note").textContent="Workspace selected. Dashboard modules are not connected to live bot settings yet.";}catch(error){document.getElementById("server-picker-note").textContent=error.message;select.value=me.selectedGuild?.id||"";}finally{select.disabled=false;}});}}).catch(()=>{document.getElementById("connection-status").textContent="● Dashboard API unavailable";});
+
+async function loadServerGroups(me){
+ const note=$("server-picker-note"), installed=$("installed-servers"), missing=$("missing-servers");
+ note.textContent="Refreshing your Administrator servers…";
+ installed.replaceChildren();missing.replaceChildren();
+ try{
+  const response=await fetch("/api/servers",{cache:"no-store"});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||"Could not load servers.");
+  const guilds=data.guilds||[], ready=guilds.filter(g=>g.botInstalled===true), absent=guilds.filter(g=>g.botInstalled===false), unknown=guilds.filter(g=>g.botInstalled===null);
+  $("installed-count").textContent=String(ready.length);
+  $("missing-count").textContent=String(absent.length+unknown.length);
+  function addCard(container,guild,mode){
+   const card=document.createElement("div");card.className="server-card";
+   const avatar=document.createElement("div");avatar.className="server-avatar";
+   if(guild.icon){const img=document.createElement("img");img.alt="";img.src="https://cdn.discordapp.com/icons/"+encodeURIComponent(guild.id)+"/"+encodeURIComponent(guild.icon)+".png?size=96";img.onerror=()=>{avatar.textContent=(guild.name||"S").slice(0,1).toUpperCase();};avatar.append(img);}
+   else avatar.textContent=(guild.name||"S").slice(0,1).toUpperCase();
+   const info=document.createElement("div");info.className="server-info";
+   const name=document.createElement("strong");name.textContent=guild.name;
+   const detail=document.createElement("small");detail.textContent=mode==="installed"?"Sentinel is installed":mode==="missing"?"Sentinel is not installed":"Installation status unavailable";
+   info.append(name,detail);card.append(avatar,info);
+   if(mode==="installed"){
+    const action=document.createElement("button");action.className="server-action";action.type="button";action.textContent="Manage";
+    action.addEventListener("click",()=>selectDashboardServer(guild,me,action));card.append(action);
+   }else if(guild.inviteUrl){
+    const action=document.createElement("a");action.className="server-action invite";action.href=guild.inviteUrl;action.target="_blank";action.rel="noopener noreferrer";action.textContent="Invite Sentinel";card.append(action);
+   }else{
+    const action=document.createElement("span");action.className="server-action invite";action.textContent="Invite unavailable";card.append(action);
+   }
+   container.append(card);
+  }
+  if(ready.length)ready.forEach(g=>addCard(installed,g,"installed"));else installed.innerHTML='<p class="server-empty">Sentinel is not installed in any of your Administrator servers yet.</p>';
+  if(absent.length)absent.forEach(g=>addCard(missing,g,"missing"));
+  if(unknown.length)unknown.forEach(g=>addCard(missing,g,"unknown"));
+  if(!absent.length&&!unknown.length)missing.innerHTML='<p class="server-empty">Sentinel is already installed in all your Administrator servers.</p>';
+  if(!data.botCheckConfigured)note.textContent="Add DISCORD_BOT_TOKEN to the dashboard server's private environment to check which servers already have Sentinel. Until then, installation status cannot be verified.";
+  else if(unknown.length)note.textContent="Some server installation checks could not be completed. Use Refresh servers to try again.";
+  else note.textContent="Showing only servers where your Discord account has Administrator permission. Server status refreshes automatically every 60 seconds.";
+ }catch(error){note.textContent=error.message;installed.innerHTML='<p class="server-empty">Could not load server status.</p>';missing.replaceChildren();}
+}
+async function selectDashboardServer(guild,me,button){
+ button.disabled=true;button.textContent="Opening…";
+ try{
+  const response=await fetch("/api/select-server",{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":me.csrfToken},body:JSON.stringify({guildId:guild.id})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not select this server.");
+  $("selected-server-name").textContent=result.selectedGuild.name;
+  $("selected-server-detail").textContent="Active workspace selected";
+  $("server-picker-note").textContent=guild.name+" selected. Your dashboard workspace is ready; live module data still needs the bot connection.";
+  button.textContent="Selected";
+ }catch(error){$("server-picker-note").textContent=error.message;button.disabled=false;button.textContent="Manage";}
+}
+$("refresh-servers").addEventListener("click",()=>{if(window.sentinelMe)loadServerGroups(window.sentinelMe);});
+Promise.all([fetch("/api/health").then(r=>r.json()),fetch("/api/me").then(r=>r.ok?r.json():null)]).then(([health,me])=>{
+ const status=$("connection-status"),note=document.querySelector(".notice"),login=$("discord-login");
+ if(!health.oauthConfigured){status.textContent="● Preview mode · OAuth setup needed";note.textContent="Add Discord OAuth credentials and a long random SESSION_SECRET to the private .env file. Never put your bot token in browser code.";}
+ if(me&&me.authenticated){
+  window.sentinelMe=me;const adminGuilds=(me.guilds||[]).filter(g=>g.canManage===true);
+  status.textContent="● Signed in as "+me.user.username;login.textContent="Signed in · "+adminGuilds.length+" administrator servers";login.href="#";
+  note.textContent="Your server list is restricted to servers where your Discord account has Administrator permission.";
+  $("server-picker").style.display="block";
+  if(!adminGuilds.length){$("server-picker-note").textContent="No servers with Administrator permission were found for this Discord account.";$("installed-servers").innerHTML='<p class="server-empty">No Administrator servers found.</p>';$("missing-servers").replaceChildren();}
+  else {await loadServerGroups(me);if(me.selectedGuild&&adminGuilds.some(g=>g.id===me.selectedGuild.id)){$("selected-server-name").textContent=me.selectedGuild.name;$("selected-server-detail").textContent="Active workspace selected";}}
+  window.setInterval(()=>loadServerGroups(me),60000);
+ }
+}).catch(()=>{$("connection-status").textContent="● Dashboard API unavailable";});
 </script></body></html>
