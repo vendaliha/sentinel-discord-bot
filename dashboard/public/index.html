@@ -22,8 +22,11 @@
 <button data-page="permissions"><span class="ico">♙</span>Permissions</button>
 <button data-page="security"><span class="ico">⬡</span>Security</button>
 <button data-page="whitelist"><span class="ico">✓</span>Whitelist</button>
-<button data-page="logs"><span class="ico">▤</span>Audit logs</button>
+<button data-page="logs"><span class="ico">▤</span>Logging</button>
+<button data-page="welcome"><span class="ico">✦</span>Welcome & goodbye</button>
+<button data-page="automod"><span class="ico">⛨</span>Auto-moderation</button>
 <div class="nav-label">COMMUNITY</div>
+<button data-page="roles"><span class="ico">♙</span>Autoroles & role menus</button>
 <button data-page="panels"><span class="ico">▣</span>Panel Configs</button>
 <button data-page="giveaways"><span class="ico">✧</span>Giveaways</button>
 <button data-page="settings"><span class="ico">⚙</span>Settings</button></nav>
@@ -42,6 +45,40 @@
 <section class="page" id="security"><div class="placeholder"><h2>Security</h2><p>Security settings and protection status will be shown here once the bot connection is active.</p></div></section>
 <section class="page" id="whitelist"><div class="section-head"><h2>Anti-Nuke Whitelist</h2><span>Members exempt from automatic anti-nuke blacklisting</span></div><div class="panel"><div class="section-head"><h2>Whitelisted members</h2><span id="whitelist-count">Live data not connected</span></div><div class="table-wrap" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr style="color:#aaa;font-size:11px"><th style="padding:12px;border-bottom:1px solid var(--line)">MEMBER</th><th style="padding:12px;border-bottom:1px solid var(--line)">DISCORD USER ID</th><th style="padding:12px;border-bottom:1px solid var(--line)">STATUS</th></tr></thead><tbody id="whitelist-rows"><tr><td colspan="3" style="padding:18px;color:var(--muted)">Connect Sentinel to your Discord server to load its anti-nuke whitelist.</td></tr></tbody></table></div><p class="helper" style="margin-top:14px">This list will read the existing anti_nuke_whitelist records for the selected server. Add/remove controls will only be enabled for staff authorised to manage the bot\u2019s anti-nuke whitelist.</p></div></section>
 <section class="page" id="logs"><div class="placeholder"><h2>Audit logs</h2><p>Staff actions and dashboard changes will be recorded here with timestamps and responsible users.</p></div></section>
+<section class="page" id="welcome">
+<div class="section-head"><h2>Welcome & goodbye messages</h2><span>Member experience</span></div>
+<div class="builder-grid">
+<div class="builder-main">
+<div class="panel"><h2>Welcome message</h2><p class="helper">Send a message when a member joins your server.</p>
+<label class="field-label">Enable welcome messages</label><select class="field"><option>Disabled — integration required</option><option>Enabled</option></select>
+<label class="field-label">Welcome channel ID</label><input class="field" placeholder="Choose a channel after connecting Discord" disabled>
+<label class="field-label">Welcome message</label><textarea class="field" rows="4" disabled placeholder="Welcome {user} to {server}! You are member #{memberCount}."></textarea>
+<label class="field-label">Embed colour</label><input class="field colour-field" type="color" value="#8054d6" disabled>
+</div>
+<div class="panel"><h2>Goodbye message</h2><p class="helper">Send a message when a member leaves your server.</p>
+<label class="field-label">Enable goodbye messages</label><select class="field"><option>Disabled — integration required</option><option>Enabled</option></select>
+<label class="field-label">Goodbye channel ID</label><input class="field" placeholder="Choose a channel after connecting Discord" disabled>
+<label class="field-label">Goodbye message</label><textarea class="field" rows="3" disabled placeholder="{user} has left {server}."></textarea>
+</div></div>
+<div class="panel preview-column"><h2>Message variables</h2><p class="helper">Available placeholders planned for messages:</p><p><code>{user}</code> <code>{username}</code> <code>{server}</code> <code>{memberCount}</code> <code>{userId}</code></p><div class="notice">Preview only — message delivery and saving will be enabled when the dashboard is securely connected to Sentinel.</div></div>
+</div></section>
+<section class="page" id="automod">
+<div class="section-head"><h2>Auto-moderation</h2><span>Protect your community automatically</span></div>
+<div class="stats"><div class="stat"><label>SPAM FILTER</label><strong>Not configured</strong><small>Repeated messages and floods</small></div><div class="stat"><label>INVITE FILTER</label><strong>Not configured</strong><small>Discord invite links</small></div><div class="stat"><label>WORD FILTER</label><strong>Not configured</strong><small>Custom blocked phrases</small></div></div>
+<div class="builder-grid"><div class="builder-main">
+<div class="panel"><h2>Message filters</h2><label class="field-label">Spam detection</label><select class="field" disabled><option>Disabled — integration required</option><option>Delete messages and warn</option><option>Timeout after repeated offences</option></select>
+<label class="field-label">Invite link filter</label><select class="field" disabled><option>Disabled — integration required</option><option>Block all invites</option><option>Allow approved server invites</option></select>
+<label class="field-label">Mention spam threshold</label><input class="field" type="number" min="2" value="5" disabled>
+<label class="field-label">Blocked words / phrases</label><textarea class="field" rows="4" disabled placeholder="One phrase per line"></textarea>
+</div></div><div class="panel preview-column"><h2>Exemptions</h2><p class="helper">Plan exemptions for trusted roles, channels and members so moderation rules do not affect approved areas.</p><div class="notice">No filters are active from this preview. Rules must be implemented and tested in the bot before they can moderate members.</div></div></div>
+</section>
+<section class="page" id="roles">
+<div class="section-head"><h2>Autoroles & role menus</h2><span>Member onboarding and self-service roles</span></div>
+<div class="builder-grid"><div class="builder-main">
+<div class="panel"><h2>Autoroles</h2><p class="helper">Automatically assign selected roles to new members.</p><label class="field-label">Role to assign on join</label><select class="field" disabled><option>Connect Discord to load server roles</option></select><label class="field-label">Delay before assigning</label><select class="field" disabled><option>Immediately</option><option>After 1 minute</option><option>After verification</option></select></div>
+<div class="panel"><h2>Reaction roles & role menus</h2><p class="helper">Create a message with buttons or a dropdown so members can choose their own roles.</p><label class="field-label">Menu title</label><input class="field" placeholder="Choose your roles" disabled><label class="field-label">Role menu type</label><select class="field" disabled><option>Button menu</option><option>Dropdown menu</option></select><button class="btn secondary" type="button" disabled>＋ Add role option</button></div>
+</div><div class="panel preview-column"><h2>Safety checks</h2><p class="helper">Sentinel will prevent role menus from granting staff or privileged permissions unless an administrator explicitly allows it.</p><div class="notice">Role lists and publishing require a live bot connection.</div></div></div>
+</section>
 <section class="page" id="panels">
 <div class="section-head"><h2>Panel Configurations</h2><span>Design the ticket panel your members see in Discord</span></div>
 <div class="panel-toolbar"><div><label class="field-label" for="panel-select">Existing ticket panel</label><select id="panel-select"><option value="support">1 | Support</option></select></div><div class="panel-toolbar-actions"><button class="btn" id="edit-panel" type="button">✎ Edit existing panel</button><button class="btn secondary" id="new-panel" type="button">＋ New panel</button></div></div><p class="helper" id="panel-edit-status" aria-live="polite">Select your existing panel, then choose Edit existing panel to customise it.</p>
@@ -77,7 +114,7 @@
 <div class="footer">SENTINEL CONTROL CENTRE · PRIVATE SERVER MANAGEMENT</div>
 </main></div>
 <script>
-const titles={overview:"Control overview",moderation:"Moderation",permissions:"Command permissions",security:"Security",whitelist:"Anti-Nuke Whitelist",logs:"Audit logs",panels:"Panel Configs",giveaways:"Giveaways",settings:"Dashboard setup"};
+const titles={overview:"Control overview",moderation:"Moderation",permissions:"Command permissions",security:"Security",whitelist:"Anti-Nuke Whitelist",logs:"Logging",welcome:"Welcome & goodbye",automod:"Auto-moderation",roles:"Autoroles & role menus",panels:"Panel Configs",giveaways:"Giveaways",settings:"Dashboard setup"};
 function showPage(name){if(!titles[name])return;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===name));document.querySelectorAll("nav button[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));document.getElementById("page-title").textContent=titles[name];}
 document.querySelectorAll("nav button[data-page]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
 document.querySelectorAll("[data-jump]").forEach(b=>{const go=()=>showPage(b.dataset.jump);b.addEventListener("click",go);b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});});
