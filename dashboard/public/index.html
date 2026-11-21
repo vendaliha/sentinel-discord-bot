@@ -169,8 +169,10 @@ async function loadServerGroups(me){
    if(mode==="installed"){
     const action=document.createElement("button");action.className="server-action";action.type="button";action.textContent="Manage";
     action.addEventListener("click",()=>selectDashboardServer(guild,me,action));card.append(action);
-   }else if(guild.inviteUrl){
+   }else if(mode==="missing"&&guild.inviteUrl){
     const action=document.createElement("a");action.className="server-action invite";action.href=guild.inviteUrl;action.target="_blank";action.rel="noopener noreferrer";action.textContent="Invite Sentinel";card.append(action);
+   }else if(mode==="unknown"){
+    const action=document.createElement("span");action.className="helper";action.textContent="Check connection first";card.append(action);
    }else{
     const action=document.createElement("span");action.className="server-action invite";action.textContent="Invite unavailable";card.append(action);
    }
