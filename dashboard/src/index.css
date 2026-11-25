@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --color-ink-950: #070910;
+  --color-ink-900: #0a0d14;
+  --color-ink-850: #0e121b;
+  --color-ink-800: #131824;
+  --color-ink-700: #1b2130;
+  --color-ink-600: #242c3d;
+
+  --color-line: #1f2737;
+  --color-line-soft: #171d29;
+
+  --color-mist-600: #586274;
+  --color-mist-500: #6f798d;
+  --color-mist-400: #8f99ad;
+  --color-mist-300: #aab4c6;
+  --color-mist-200: #cbd3e1;
+  --color-mist-100: #e6ebf5;
+
+  --color-brand-600: #4752e0;
+  --color-brand-500: #5865f2;
+  --color-brand-400: #7d87ff;
+
+  --color-good: #35c68d;
+  --color-warn: #eeb44a;
+  --color-bad: #ef5f72;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(88, 101, 242, 0.16), transparent 60%),
+      radial-gradient(700px 400px at 90% 0%, rgba(53, 198, 141, 0.08), transparent 55%),
+      var(--color-ink-950);
+    color: var(--color-mist-100);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgba(88, 101, 242, 0.4);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-600) transparent;
+  }
+
+  input[type="range"] {
+    accent-color: var(--color-brand-500);
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-ink-850/80 backdrop-blur-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 bg-brand-500 text-white hover:bg-brand-400;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 border border-line bg-ink-800 text-mist-200 hover:border-mist-500/50 hover:text-white;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 border border-bad/30 bg-bad/10 text-bad hover:bg-bad/20;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line bg-ink-900 px-3 py-2 text-sm text-mist-100 placeholder:text-mist-600 focus:border-brand-500 focus:outline-none;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-mist-500;
+  }
+
+  .mono {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}

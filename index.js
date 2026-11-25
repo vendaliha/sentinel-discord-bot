@@ -30,6 +30,7 @@ const { randomUUID } = require("node:crypto");
 const Database = require("better-sqlite3");
 const BOT_VERSION = require("./package.json").version;
 const { drawAndRecordGiveawayWinners, migrateGiveawayWinnerHistory } = require("./giveaway-winners");
+const { startDashboardApi } = require("./dashboard-api");
 const envFile = process.env.BOT_ENV_FILE || process.argv[2] || ".env";
 require("dotenv").config({ path: envFile });
 
@@ -74,6 +75,8 @@ const client = new Client({
     Partials.Message
   ]
 });
+
+const reactionRoleSetupSessions = new Map();
 
 function getBotIdentity() {
   if (!client.isReady() || !client.user) {
@@ -367,6 +370,26 @@ CREATE TABLE IF NOT EXISTS reaction_roles (
   UNIQUE (guild_id, message_id, emoji)
 );
 
+CREATE TABLE IF NOT EXISTS reaction_role_panels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guild_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  message_id TEXT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reaction_role_panel_roles (
+  panel_id INTEGER NOT NULL,
+  role_id TEXT NOT NULL,
+  emoji TEXT,
+  position INTEGER NOT NULL,
+  PRIMARY KEY (panel_id, role_id)
+);
+
 CREATE TABLE IF NOT EXISTS suggestions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   guild_id TEXT NOT NULL,
@@ -482,6 +505,14 @@ SELECT guild_id, 'raid', role_id
 FROM command_roles
 WHERE command_name = 'raidmode';
 DELETE FROM command_roles WHERE command_name = 'raidmode';
+INSERT OR IGNORE INTO command_roles (guild_id, command_name, role_id)
+SELECT guild_id, 'reactionrole', role_id
+FROM command_roles
+WHERE command_name = 'reactionroles';
+INSERT OR IGNORE INTO command_settings (guild_id, command_name, enabled)
+SELECT guild_id, 'reactionrole', enabled
+FROM command_settings
+WHERE command_name = 'reactionroles';
 `);
 
 db.exec(`
@@ -499,6 +530,12 @@ CREATE INDEX IF NOT EXISTS idx_security_events_guild_time
   ON security_events (guild_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_permission_audit_guild_command
   ON permission_audit (guild_id, command_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reaction_role_panels_guild
+  ON reaction_role_panels (guild_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_reaction_role_panels_message
+  ON reaction_role_panels (guild_id, message_id);
+CREATE INDEX IF NOT EXISTS idx_reaction_role_panel_roles_panel
+  ON reaction_role_panel_roles (panel_id, position);
 `);
 
 const blacklistColumns = new Set(db.prepare("PRAGMA table_info(blacklist_records)").all().map(column => column.name));
@@ -640,7 +677,7 @@ const COMMANDS = [
   "welcome-setup",
   "goodbye-setup",
   "autorole",
-  "reactionroles",
+  "reactionrole",
   "suggest",
   "suggestion-setup",
   "poll",
@@ -709,7 +746,7 @@ const SLASH_ONLY_PREFIX_COMMANDS = new Set([
   "welcome-setup",
   "goodbye-setup",
   "autorole",
-  "reactionroles",
+  "reactionrole",
   "suggest",
   "suggestion-setup",
   "poll",
@@ -1953,7 +1990,8 @@ const COMMAND_PERMISSION_REQUIREMENTS = {
   addrole: PermissionFlagsBits.ManageRoles,
   removerole: PermissionFlagsBits.ManageRoles,
   temprole: PermissionFlagsBits.ManageRoles,
-  grade: PermissionFlagsBits.ManageRoles
+  grade: PermissionFlagsBits.ManageRoles,
+  reactionrole: PermissionFlagsBits.ManageRoles
 };
 
 function getCommandPermissionRequirement(commandName) {
@@ -3497,7 +3535,7 @@ function helpCategoryEmbed(category) {
     security: ["**Security**", "/antispam, /antiraid, /antilink, /antimention, /antibot", "/raidmode, /security", "/raid, /whitelist, /honeypot"],
     giveaways: ["**Giveaways**", "/giveaway create/end/reroll/cancel/list", "/giveawayreroll, /giveawayend, /giveawaylist", "/giveawayedit, /giveawayentries, /giveawaydelete"],
     tickets: ["**Tickets**", "/ticket-setup, /ticket-add, /ticket-remove", "/ticket-close, /ticket-reopen, /ticket-claim", "/ticket-transcript"],
-    community: ["**Community**", "/welcome-setup, /goodbye-setup, /autorole", "/reactionroles, /suggest, /suggestion-setup", "/poll, /embed, /remind"],
+    community: ["**Community**", "/welcome-setup, /goodbye-setup, /autorole", "/reactionrole create/edit/delete/list, /suggest, /suggestion-setup", "/poll, /embed, /remind"],
     utilities: ["**Utilities**", "/userinfo, /serverinfo, /roleinfo, /channelinfo", "/avatar, /membercount, /serverstats", "/botinfo, /ping, /invite, /help"],
     administration: ["**Administration**", "/setup, /config, /permissions, /commandtoggle", "/setlogs, /resetconfig, /backup, /restore"]
   };
@@ -3521,6 +3559,342 @@ function helpComponents(selectedCategory = null) {
         { label: "Administration", value: "administration", default: selectedCategory === "administration" }
       )
   )];
+}
+
+function reactionRoleManagerError(interaction) {
+  if (!hasCommandAccess(interaction, "reactionrole")) {
+    return "You don't have permission to use `/reactionrole`.";
+  }
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
+    return "You need Manage Roles to manage reaction-role panels.";
+  }
+  const allowedRoles = getCommandRoles(interaction.guildId, "reactionrole");
+  if (allowedRoles.length &&
+      !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) &&
+      !allowedRoles.some(roleId => interaction.member?.roles?.cache?.has(roleId))) {
+    return "You need one of the configured reaction-role manager roles to manage panels.";
+  }
+  return null;
+}
+
+function reactionRolePanelEmbed(panel, roles) {
+  const identity = getBotIdentity();
+  const embed = new EmbedBuilder()
+    .setTitle(panel.title)
+    .setDescription(`${safeText(panel.description)}\n\nClick a button to add or remove that role.`)
+    .setTimestamp();
+  if (!roles.length) {
+    embed.setDescription(`${safeText(panel.description)}\n\nNo assignable roles are currently configured.`);
+  }
+  const author = { name: identity.username };
+  if (identity.avatarURL) {
+    author.iconURL = identity.avatarURL;
+    embed.setThumbnail(identity.avatarURL);
+  }
+  return embed.setAuthor(author).setFooter({ text: `${identity.username} • v${identity.version}` });
+}
+
+function reactionRolePanelComponents(panelId, roles, disabled = false) {
+  const components = [];
+  for (let offset = 0; offset < roles.length; offset += 5) {
+    const row = new ActionRowBuilder();
+    for (const role of roles.slice(offset, offset + 5)) {
+      const button = new ButtonBuilder()
+        .setCustomId(`rr:t:${panelId}:${role.id}`)
+        .setLabel(role.name.replace(/\s+/gu, " ").slice(0, 80))
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(disabled);
+      if (role.buttonEmoji) button.setEmoji(role.buttonEmoji);
+      row.addComponents(button);
+    }
+    components.push(row);
+  }
+  return components;
+}
+
+function parseReactionRoleButtonEmoji(value, guild) {
+  const emoji = String(value || "").trim();
+  if (!emoji) return { value: null, buttonEmoji: null };
+  const customMatch = emoji.match(/^<(a?):([A-Za-z0-9_]{2,32}):(\d{17,20})>$/);
+  if (customMatch) {
+    const customEmoji = guild.emojis.cache.get(customMatch[3]);
+    if (!customEmoji) return { error: `Custom emoji ${emoji} is unavailable in this server.` };
+    return {
+      value: customEmoji.toString(),
+      buttonEmoji: { id: customEmoji.id, name: customEmoji.name, animated: customEmoji.animated }
+    };
+  }
+  if (/\s/u.test(emoji) || Array.from(emoji).length > 16 ||
+      !/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u20E3]/u.test(emoji)) {
+    return { error: `\`${safeText(emoji)}\` is not a valid single Unicode or server emoji.` };
+  }
+  return { value: emoji, buttonEmoji: emoji };
+}
+
+function parseReactionRoleEmojiMappings(value, roles, guild) {
+  const emojiByRoleId = new Map();
+  for (const line of String(value || "").split("\n").map(item => item.trim()).filter(Boolean)) {
+    const separator = line.indexOf("=");
+    if (separator <= 0 || separator === line.length - 1) {
+      return { error: `Use one mapping per line in the format \`role name or ID = emoji\`.` };
+    }
+    const roleKey = line.slice(0, separator).trim();
+    const emojiText = line.slice(separator + 1).trim();
+    const matches = roles.filter(role => role.id === roleKey || role.name.toLowerCase() === roleKey.toLowerCase());
+    if (matches.length !== 1) {
+      return { error: `I couldn't uniquely match \`${safeText(roleKey)}\` to one of the selected roles. Use its role ID if names are duplicated.` };
+    }
+    if (emojiText.toLowerCase() === "none") {
+      emojiByRoleId.set(matches[0].id, null);
+      continue;
+    }
+    const parsedEmoji = parseReactionRoleButtonEmoji(emojiText, guild);
+    if (parsedEmoji.error) return parsedEmoji;
+    emojiByRoleId.set(matches[0].id, parsedEmoji.value);
+  }
+  return { emojiByRoleId };
+}
+
+function validateReactionRoleSelection(interaction, roleIds) {
+  if (!Array.isArray(roleIds) || roleIds.length < 1 || roleIds.length > 10) {
+    return { error: "Select between 1 and 10 roles for a panel." };
+  }
+  const guild = interaction.guild;
+  const botMember = guild.members.me;
+  if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    return { error: "I need the Manage Roles permission to publish and operate role panels." };
+  }
+  const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  const memberHighestRole = interaction.member?.roles?.highest;
+  const roles = [];
+  for (const roleId of new Set(roleIds)) {
+    const role = guild.roles.cache.get(roleId);
+    if (!role || role.id === guild.id || role.managed) {
+      return { error: "A selected role was deleted or cannot be assigned." };
+    }
+    if (!role.editable) {
+      return { error: `I can't manage ${role}. Move my highest role above it before using this panel.` };
+    }
+    if (!isAdministrator && (!memberHighestRole || memberHighestRole.comparePositionTo(role) <= 0)) {
+      return { error: `I can't verify that ${role} is below your highest role. Only administrators can configure roles they outrank.` };
+    }
+    roles.push(role);
+  }
+  return { roles };
+}
+
+function getReactionRolePanelRoleData(guild, panelId) {
+  return db.prepare(`
+    SELECT role_id, emoji, position
+    FROM reaction_role_panel_roles
+    WHERE panel_id = ?
+    ORDER BY position
+  `).all(panelId).map(entry => {
+    const role = guild.roles.cache.get(entry.role_id);
+    const parsedEmoji = parseReactionRoleButtonEmoji(entry.emoji, guild);
+    return role ? {
+      id: role.id,
+      name: role.name,
+      emoji: parsedEmoji.error ? null : entry.emoji,
+      buttonEmoji: parsedEmoji.error ? null : parsedEmoji.buttonEmoji
+    } : null;
+  }).filter(Boolean);
+}
+
+async function upgradeReactionRolePanels(guild) {
+  const panels = db.prepare(`
+    SELECT id, channel_id, message_id, title, description
+    FROM reaction_role_panels
+    WHERE guild_id = ? AND message_id IS NOT NULL
+    ORDER BY id
+  `).all(guild.id);
+
+  for (const panel of panels) {
+    try {
+      const channel = guild.channels.cache.get(panel.channel_id) ||
+        await guild.channels.fetch(panel.channel_id);
+      if (!channel?.isTextBased() || !("messages" in channel)) {
+        console.warn(`Could not upgrade reaction-role panel #${panel.id}: its channel is unavailable.`);
+        continue;
+      }
+      const message = await channel.messages.fetch(panel.message_id);
+      const needsUpgrade = message.embeds.some(embed => embed.fields?.length) ||
+        message.components.some(row =>
+          row.components.some(component => !component.customId?.startsWith("rr:t:"))
+        );
+      if (!needsUpgrade) continue;
+      const roles = getReactionRolePanelRoleData(guild, panel.id);
+      await message.edit(publishReactionRolePanel(panel, roles));
+    } catch (error) {
+      console.warn(`Could not upgrade reaction-role panel #${panel.id} in guild ${guild.id}:`, error.message);
+    }
+  }
+}
+
+function publishReactionRolePanel(panel, roles) {
+  return {
+    embeds: [reactionRolePanelEmbed(panel, roles)],
+    components: reactionRolePanelComponents(panel.id, roles),
+    allowedMentions: { parse: [] }
+  };
+}
+
+function startReactionRoleSetup(interaction, state) {
+  const token = randomUUID().replaceAll("-", "").slice(0, 20);
+  state.userId = interaction.user.id;
+  state.guildId = interaction.guildId;
+  state.selectedRoleIds = [...(state.initialRoleIds || [])];
+  state.completed = false;
+  reactionRoleSetupSessions.set(token, state);
+  const timeout = setTimeout(() => reactionRoleSetupSessions.delete(token), 15 * 60 * 1000);
+  timeout.unref?.();
+
+  const roleSelect = new RoleSelectMenuBuilder()
+    .setCustomId(`rr_roles:${token}`)
+    .setPlaceholder(state.mode === "edit" ? "Select the panel's complete role list" : "Select roles for this panel")
+    .setMinValues(1)
+    .setMaxValues(10);
+  if (state.mode === "edit" && state.selectedRoleIds.length) {
+    roleSelect.setDefaultRoles(...state.selectedRoleIds);
+  }
+  const row = new ActionRowBuilder().addComponents(roleSelect);
+  return interaction.reply({
+    content: state.mode === "edit"
+      ? `Editing panel **#${state.panelId}**. Select the complete role list to replace its current roles.`
+      : "Choose between 1 and 10 roles. You can optionally assign an emoji to each role before publishing.",
+    components: [row],
+    ephemeral: true
+  });
+}
+
+function reactionRoleSetupPreview(state, guild) {
+  const roles = state.selectedRoleIds.map(roleId => {
+    const role = guild.roles.cache.get(roleId);
+    const emoji = state.emojiByRoleId?.get(roleId) || state.existingEmojiByRoleId?.get(roleId) || null;
+    const parsed = parseReactionRoleButtonEmoji(emoji, guild);
+    return role ? {
+      id: role.id,
+      name: role.name,
+      emoji: parsed.error ? null : emoji,
+      buttonEmoji: parsed.error ? null : parsed.buttonEmoji
+    } : null;
+  }).filter(Boolean);
+  return { roles, embed: reactionRolePanelEmbed(state, roles) };
+}
+
+async function saveReactionRoleSetup(state, interaction, emojiByRoleId = new Map()) {
+  const selection = validateReactionRoleSelection(interaction, state.selectedRoleIds);
+  if (selection.error) return { error: selection.error };
+  const selectedRoles = selection.roles;
+  const roles = [];
+  for (const [position, role] of selectedRoles.entries()) {
+    const emoji = emojiByRoleId.has(role.id)
+      ? emojiByRoleId.get(role.id)
+      : state.existingEmojiByRoleId?.get(role.id) || null;
+    const parsed = parseReactionRoleButtonEmoji(emoji, interaction.guild);
+    if (parsed.error) return { error: parsed.error };
+    roles.push({ id: role.id, name: role.name, emoji: parsed.value, buttonEmoji: parsed.buttonEmoji, position });
+  }
+  const botMember = interaction.guild.members.me;
+  let channel;
+  try {
+    channel = await interaction.guild.channels.fetch(state.channelId);
+  } catch (error) {
+    console.warn(`Could not fetch reaction-role channel ${state.channelId}:`, error.message);
+    return { error: "The selected panel channel is unavailable or I can't access it." };
+  }
+  if (!channel?.isTextBased() || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
+    return { error: "The selected panel channel is unavailable or is not a text channel." };
+  }
+  const channelPermissions = channel.permissionsFor(botMember);
+  if (!channelPermissions?.has(PermissionFlagsBits.ViewChannel) ||
+      !channelPermissions.has(PermissionFlagsBits.SendMessages) ||
+      !channelPermissions.has(PermissionFlagsBits.EmbedLinks)) {
+    return { error: "I need View Channel, Send Messages, and Embed Links permissions in the panel channel." };
+  }
+
+  const timestamp = now();
+  let panelId = state.panelId;
+  let previousPanel = null;
+  let previousRoles = [];
+  let existingMessage = null;
+  if (state.mode === "edit") {
+    previousPanel = db.prepare(`
+      SELECT * FROM reaction_role_panels WHERE id = ? AND guild_id = ?
+    `).get(panelId, interaction.guildId);
+    if (!previousPanel) return { error: "That panel no longer exists." };
+    previousRoles = getReactionRolePanelRoleData(interaction.guild, panelId);
+    if (previousPanel.message_id) {
+      try {
+        existingMessage = await channel.messages.fetch(previousPanel.message_id);
+      } catch (error) {
+        if (error.code !== 10008) throw error;
+      }
+    }
+  } else {
+    const createPanel = db.transaction(() => {
+      const result = db.prepare(`
+        INSERT INTO reaction_role_panels
+          (guild_id, channel_id, title, description, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(interaction.guildId, channel.id, state.title, state.description, interaction.user.id, timestamp, timestamp);
+      panelId = Number(result.lastInsertRowid);
+    });
+    createPanel();
+  }
+
+  const panel = { id: panelId, title: state.title, description: state.description };
+  let publishedMessage = existingMessage;
+  try {
+    const payload = publishReactionRolePanel(panel, roles);
+    if (publishedMessage) {
+      await publishedMessage.edit(payload);
+    } else {
+      publishedMessage = await channel.send(payload);
+    }
+    const persist = db.transaction(() => {
+      if (state.mode === "edit") {
+        db.prepare(`
+          UPDATE reaction_role_panels
+          SET channel_id = ?, message_id = ?, title = ?, description = ?, updated_at = ?
+          WHERE id = ? AND guild_id = ?
+        `).run(channel.id, publishedMessage.id, state.title, state.description, timestamp, panelId, interaction.guildId);
+        db.prepare("DELETE FROM reaction_role_panel_roles WHERE panel_id = ?").run(panelId);
+      } else {
+        db.prepare("UPDATE reaction_role_panels SET message_id = ? WHERE id = ?").run(publishedMessage.id, panelId);
+      }
+      const insertRole = db.prepare(`
+        INSERT INTO reaction_role_panel_roles (panel_id, role_id, emoji, position)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const role of roles) insertRole.run(panelId, role.id, role.emoji, role.position);
+    });
+    persist();
+  } catch (error) {
+    if (state.mode === "create") {
+      db.transaction(() => {
+        db.prepare("DELETE FROM reaction_role_panel_roles WHERE panel_id = ?").run(panelId);
+        db.prepare("DELETE FROM reaction_role_panels WHERE id = ?").run(panelId);
+      })();
+      if (publishedMessage) await publishedMessage.delete().catch(() => {});
+    } else if (existingMessage && previousPanel) {
+      const previousPayload = publishReactionRolePanel(
+        { id: panelId, title: previousPanel.title, description: previousPanel.description },
+        previousRoles
+      );
+      await existingMessage.edit(previousPayload).catch(restoreError => {
+        console.error(`Could not restore reaction-role panel #${panelId} after a save failure:`, restoreError);
+      });
+    } else if (publishedMessage) {
+      await publishedMessage.delete().catch(() => {});
+    }
+    throw error;
+  }
+
+  const action = state.mode === "edit" ? "edited" : "created";
+  addModLog(interaction.guildId, "reaction_role_panel", interaction.guildId, interaction.user.id,
+    `Reaction-role panel ${action}`, `Panel #${panelId} in channel ${channel.id}`);
+  return { panelId, channel, message: publishedMessage, roles };
 }
 
 function findRoleByName(guild, name) {
@@ -3920,11 +4294,18 @@ async function registerCommands() {
     new SlashCommandBuilder().setName("welcome-setup").setDescription("Configure welcome messages").addChannelOption(option => option.setName("channel").setDescription("Welcome channel").addChannelTypes(ChannelType.GuildText).setRequired(true)).addStringOption(option => option.setName("message").setDescription("Use {user}, {server}, and {membercount}").setMaxLength(1000).setRequired(true)),
     new SlashCommandBuilder().setName("goodbye-setup").setDescription("Configure goodbye messages").addChannelOption(option => option.setName("channel").setDescription("Goodbye channel").addChannelTypes(ChannelType.GuildText).setRequired(true)).addStringOption(option => option.setName("message").setDescription("Use {user}, {server}, and {membercount}").setMaxLength(1000).setRequired(true)),
     new SlashCommandBuilder().setName("autorole").setDescription("Configure automatic member roles").addRoleOption(option => option.setName("role").setDescription("Role to assign on join").setRequired(false)),
-    new SlashCommandBuilder().setName("reactionroles").setDescription("Create a reaction role entry")
-      .addChannelOption(option => option.setName("channel").setDescription("Channel containing the message").addChannelTypes(ChannelType.GuildText).setRequired(true))
-      .addStringOption(option => option.setName("message_id").setDescription("Target message ID").setRequired(true))
-      .addStringOption(option => option.setName("emoji").setDescription("Emoji for this role").setRequired(true))
-      .addRoleOption(option => option.setName("role").setDescription("Role to assign").setRequired(true)),
+    new SlashCommandBuilder().setName("reactionrole").setDescription("Create and manage persistent reaction-role panels")
+      .addSubcommand(subcommand => subcommand.setName("create").setDescription("Create a role panel")
+        .addChannelOption(option => option.setName("channel").setDescription("Channel for the panel").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
+        .addStringOption(option => option.setName("title").setDescription("Panel title").setMaxLength(256).setRequired(false))
+        .addStringOption(option => option.setName("description").setDescription("Panel description").setMaxLength(1000).setRequired(false)))
+      .addSubcommand(subcommand => subcommand.setName("edit").setDescription("Edit a panel's text and role list")
+        .addIntegerOption(option => option.setName("panel_id").setDescription("Panel ID from /reactionrole list").setMinValue(1).setRequired(true))
+        .addStringOption(option => option.setName("title").setDescription("New panel title").setMaxLength(256).setRequired(false))
+        .addStringOption(option => option.setName("description").setDescription("New panel description").setMaxLength(1000).setRequired(false)))
+      .addSubcommand(subcommand => subcommand.setName("delete").setDescription("Delete a panel and its published message")
+        .addIntegerOption(option => option.setName("panel_id").setDescription("Panel ID from /reactionrole list").setMinValue(1).setRequired(true)))
+      .addSubcommand(subcommand => subcommand.setName("list").setDescription("List this server's role panels")),
     new SlashCommandBuilder().setName("suggest").setDescription("Submit a server suggestion").addStringOption(option => option.setName("text").setDescription("Suggestion text").setMaxLength(1000).setRequired(true)),
     new SlashCommandBuilder().setName("suggestion-setup").setDescription("Set the suggestion channel").addChannelOption(option => option.setName("channel").setDescription("Suggestion channel").addChannelTypes(ChannelType.GuildText).setRequired(true)),
     new SlashCommandBuilder().setName("poll").setDescription("Create a poll").addStringOption(option => option.setName("question").setDescription("Poll question").setMaxLength(256).setRequired(true)).addStringOption(option => option.setName("options").setDescription("Answers separated by | (2-10)").setMaxLength(1000).setRequired(true)),
@@ -4015,6 +4396,121 @@ client.on("interactionCreate", async interaction => {
           content: `⏳ Please wait **${(cooldownMs / 1000).toFixed(1)} seconds** before using another public command.`,
           ephemeral: true
         });
+      }
+
+      if (command === "reactionrole") {
+        const accessError = reactionRoleManagerError(interaction);
+        if (accessError) {
+          return interaction.reply({ embeds: [errorEmbed(accessError)], ephemeral: true });
+        }
+
+        const subcommand = interaction.options.getSubcommand();
+        if (subcommand === "list") {
+          const panels = db.prepare(`
+            SELECT id, channel_id, title, created_at
+            FROM reaction_role_panels
+            WHERE guild_id = ?
+            ORDER BY id DESC
+            LIMIT 25
+          `).all(guild.id);
+          const identity = getBotIdentity();
+          const embed = publicEmbed(`${identity.username} Reaction-Role Panels`,
+            panels.length ? "Panel IDs can be used with `/reactionrole edit` and `/reactionrole delete`." : "No role panels have been published yet.",
+            0x5865F2);
+          for (const panel of panels) {
+            embed.addFields({
+              name: `Panel #${panel.id} — ${safeText(panel.title)}`.slice(0, 256),
+              value: `Channel: ${channelMention(panel.channel_id)}\nCreated: ${timestamp(panel.created_at)}`,
+              inline: false
+            });
+          }
+          return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        if (subcommand === "delete") {
+          const panelId = interaction.options.getInteger("panel_id", true);
+          const panel = db.prepare("SELECT * FROM reaction_role_panels WHERE id = ? AND guild_id = ?").get(panelId, guild.id);
+          if (!panel) return interaction.reply({ embeds: [errorEmbed("That panel does not exist in this server.")], ephemeral: true });
+          await interaction.deferReply({ ephemeral: true });
+          db.transaction(() => {
+            db.prepare("DELETE FROM reaction_role_panel_roles WHERE panel_id = ?").run(panelId);
+            db.prepare("DELETE FROM reaction_role_panels WHERE id = ? AND guild_id = ?").run(panelId, guild.id);
+          })();
+          let messageRemoved = true;
+          if (panel.message_id) {
+            let channel;
+            try {
+              channel = await guild.channels.fetch(panel.channel_id);
+            } catch (error) {
+              messageRemoved = false;
+              console.error(`Could not fetch channel for reaction-role panel #${panelId}:`, error);
+            }
+            if (channel?.isTextBased()) {
+              try {
+                const message = await channel.messages.fetch(panel.message_id);
+                await message.delete();
+              } catch (error) {
+                if (error.code !== 10008) {
+                  messageRemoved = false;
+                  console.error(`Could not remove reaction-role panel #${panelId} message:`, error);
+                }
+              }
+            } else if (channel) {
+              messageRemoved = false;
+            }
+          }
+          addModLog(guild.id, "reaction_role_panel", guild.id, interaction.user.id,
+            "Reaction-role panel deleted", `Panel #${panelId}`);
+          return interaction.editReply({
+            embeds: [publicEmbed("Reaction-Role Panel Deleted",
+              messageRemoved ? `Panel **#${panelId}** and its published message were deleted.` :
+                `Panel **#${panelId}** was removed from storage, but I couldn't delete its old message. Its buttons will no longer work.`,
+              messageRemoved ? 0x57F287 : 0xFEE75C)]
+          });
+        }
+
+        if (subcommand === "create") {
+          const channel = interaction.options.getChannel("channel", true);
+          const identity = getBotIdentity();
+          const title = interaction.options.getString("title")?.trim() || `${identity.username} Roles`;
+          const description = interaction.options.getString("description")?.trim() || "Use the buttons below to add or remove roles.";
+          return startReactionRoleSetup(interaction, {
+            mode: "create",
+            channelId: channel.id,
+            title,
+            description,
+            existingEmojiByRoleId: new Map()
+          });
+        }
+
+        if (subcommand === "edit") {
+          const panelId = interaction.options.getInteger("panel_id", true);
+          const panel = db.prepare("SELECT * FROM reaction_role_panels WHERE id = ? AND guild_id = ?").get(panelId, guild.id);
+          if (!panel) return interaction.reply({ embeds: [errorEmbed("That panel does not exist in this server.")], ephemeral: true });
+          const title = interaction.options.getString("title");
+          const description = interaction.options.getString("description");
+          if ((title !== null && !title.trim()) || (description !== null && !description.trim())) {
+            return interaction.reply({ embeds: [errorEmbed("Panel title and description cannot be blank.")], ephemeral: true });
+          }
+          const roleRows = db.prepare(`
+            SELECT role_id, emoji FROM reaction_role_panel_roles WHERE panel_id = ? ORDER BY position
+          `).all(panelId);
+          const currentRoles = roleRows.map(row => guild.roles.cache.get(row.role_id)).filter(Boolean);
+          const existingEmojiByRoleId = new Map();
+          for (const row of roleRows) {
+            const parsedEmoji = parseReactionRoleButtonEmoji(row.emoji, guild);
+            existingEmojiByRoleId.set(row.role_id, parsedEmoji.error ? null : parsedEmoji.value);
+          }
+          return startReactionRoleSetup(interaction, {
+            mode: "edit",
+            panelId,
+            channelId: panel.channel_id,
+            title: title === null ? panel.title : title.trim(),
+            description: description === null ? panel.description : description.trim(),
+            initialRoleIds: currentRoles.map(role => role.id),
+            existingEmojiByRoleId
+          });
+        }
       }
 
       if (command === "help") {
@@ -4465,8 +4961,8 @@ client.on("interactionCreate", async interaction => {
         }
       }
 
-      if (["welcome-setup", "goodbye-setup", "autorole", "reactionroles", "suggest", "suggestion-setup", "poll", "embed", "remind"].includes(command)) {
-        if (["welcome-setup", "goodbye-setup", "autorole", "reactionroles", "suggestion-setup", "embed"].includes(command) &&
+      if (["welcome-setup", "goodbye-setup", "autorole", "suggest", "suggestion-setup", "poll", "embed", "remind"].includes(command)) {
+        if (["welcome-setup", "goodbye-setup", "autorole", "suggestion-setup", "embed"].includes(command) &&
             !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) &&
             !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({ embeds: [errorEmbed("You need Manage Server permission.")], ephemeral: true });
@@ -4488,23 +4984,6 @@ client.on("interactionCreate", async interaction => {
           const role = interaction.options.getRole("role");
           db.prepare("UPDATE community_settings SET autorole_id = ? WHERE guild_id = ?").run(role?.id || null, guild.id);
           return interaction.reply({ embeds: [publicEmbed("🎭 Autorole Updated", role ? `New members will receive ${role}.` : "Autorole was disabled.", 0x57F287)], ephemeral: true });
-        }
-        if (command === "reactionroles") {
-          const channel = interaction.options.getChannel("channel", true);
-          const messageId = interaction.options.getString("message_id", true);
-          const emoji = interaction.options.getString("emoji", true);
-          const role = interaction.options.getRole("role", true);
-          const message = await channel.messages.fetch(messageId).catch(() => null);
-          if (!message) return interaction.reply({ embeds: [errorEmbed("Target message not found.")], ephemeral: true });
-          await message.react(emoji).catch(error => {
-            throw error;
-          });
-          db.prepare(`
-            INSERT INTO reaction_roles (guild_id, channel_id, message_id, emoji, role_id)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(guild_id, message_id, emoji) DO UPDATE SET role_id = excluded.role_id
-          `).run(guild.id, channel.id, messageId, emoji, role.id);
-          return interaction.reply({ embeds: [publicEmbed("🎭 Reaction Role Added", `${emoji} now gives ${role}.`, 0x57F287)], ephemeral: true });
         }
         if (command === "suggestion-setup") {
           const channel = interaction.options.getChannel("channel", true);
@@ -6200,6 +6679,100 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (interaction.isButton()) {
+      const setupButton = interaction.customId.match(/^rr_(publish|emojis):([a-f0-9]{20})$/);
+      if (setupButton) {
+        const [, action, token] = setupButton;
+        const state = reactionRoleSetupSessions.get(token);
+        const accessError = reactionRoleManagerError(interaction);
+        if (!state || state.completed || state.userId !== interaction.user.id || state.guildId !== interaction.guildId) {
+          return interaction.reply({ embeds: [errorEmbed("This reaction-role setup has expired or belongs to another user.")], ephemeral: true });
+        }
+        if (accessError) return interaction.reply({ embeds: [errorEmbed(accessError)], ephemeral: true });
+
+        if (action === "emojis") {
+          const modal = new ModalBuilder()
+            .setCustomId(`rr_emojis:${token}`)
+            .setTitle("Optional Role Emojis")
+            .addComponents(new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId("reaction_role_emoji_mappings")
+                .setLabel("Role name or ID = emoji")
+                .setPlaceholder("Updates: 🎮\n123456789012345678 = <:news:123456789012345678>")
+                .setStyle(TextInputStyle.Paragraph)
+                .setMaxLength(1000)
+                .setRequired(false)
+            ));
+          return interaction.showModal(modal);
+        }
+
+        await interaction.deferUpdate();
+        try {
+          const result = await saveReactionRoleSetup(state, interaction);
+          if (result.error) {
+            return interaction.editReply({ content: result.error, embeds: [], components: [] });
+          }
+          state.completed = true;
+          return interaction.editReply({
+            content: `Panel **#${result.panelId}** was published in ${result.channel}. [Open panel](https://discord.com/channels/${interaction.guildId}/${result.channel.id}/${result.message.id})`,
+            embeds: [],
+            components: []
+          });
+        } catch (error) {
+          console.error("Could not publish reaction-role panel:", error);
+          return interaction.editReply({ content: "I couldn't publish the panel. Check my channel permissions and try again.", embeds: [], components: [] });
+        }
+      }
+
+      const panelButton = interaction.customId.match(/^rr:(t|[gr]):(\d{1,12}):(\d{17,20})$/);
+      if (panelButton) {
+        const [, , panelIdText, roleId] = panelButton;
+        const panelId = Number(panelIdText);
+        const panel = interaction.guildId && db.prepare(`
+          SELECT id FROM reaction_role_panels
+          WHERE id = ? AND guild_id = ? AND channel_id = ? AND message_id = ?
+        `).get(panelId, interaction.guildId, interaction.channelId, interaction.message.id);
+        const panelRole = panel && db.prepare(`
+          SELECT 1 FROM reaction_role_panel_roles WHERE panel_id = ? AND role_id = ?
+        `).get(panelId, roleId);
+        if (!panelRole) {
+          return interaction.reply({ content: "This role panel is no longer active.", ephemeral: true });
+        }
+        const guild = interaction.guild;
+        const botMember = guild?.members.me;
+        if (!guild || !botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+          return interaction.reply({ content: "I need the Manage Roles permission to operate this panel.", ephemeral: true });
+        }
+        const role = guild.roles.cache.get(roleId);
+        if (!role || role.managed || role.id === guild.id) {
+          return interaction.reply({ content: "That role no longer exists or cannot be assigned. Ask a server administrator to edit this panel.", ephemeral: true });
+        }
+        if (!role.editable) {
+          return interaction.reply({ content: `I can't manage ${role}. Ask an administrator to move my highest role above it.`, ephemeral: true });
+        }
+        await interaction.deferReply({ ephemeral: true });
+        const member = interaction.member?.roles
+          ? interaction.member
+          : await guild.members.fetch(interaction.user.id).catch(error => {
+            console.warn(`Could not fetch reaction-role member ${interaction.user.id}:`, error.message);
+            return null;
+          });
+        if (!member) {
+          return interaction.editReply({ content: "I couldn't verify your server membership." });
+        }
+        const hasRole = member.roles.cache.has(role.id);
+        try {
+          if (!hasRole) {
+            await member.roles.add(role, "Self-assigned through a reaction-role panel");
+            return interaction.editReply({ content: `Added **${safeText(role.name)}** to your roles.` });
+          }
+          await member.roles.remove(role, "Self-removed through a reaction-role panel");
+          return interaction.editReply({ content: `Removed **${safeText(role.name)}** from your roles.` });
+        } catch (error) {
+          console.error(`Reaction-role ${hasRole ? "removal" : "assignment"} failed for role ${role.id}:`, error);
+          return interaction.editReply({ content: "I couldn't update your roles. The role may be above my highest role, or I may be missing Manage Roles." });
+        }
+      }
+
       if (interaction.customId === "ticket_create") {
         const settings = db.prepare("SELECT * FROM ticket_settings WHERE guild_id = ?").get(interaction.guildId);
         if (!settings?.category_id || !settings.support_role_id) {
@@ -6757,6 +7330,40 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (interaction.isModalSubmit()) {
+      const reactionRoleEmojiModal = interaction.customId.match(/^rr_emojis:([a-f0-9]{20})$/);
+      if (reactionRoleEmojiModal) {
+        const state = reactionRoleSetupSessions.get(reactionRoleEmojiModal[1]);
+        const accessError = reactionRoleManagerError(interaction);
+        if (!state || state.completed || state.userId !== interaction.user.id || state.guildId !== interaction.guildId) {
+          return interaction.reply({ embeds: [errorEmbed("This reaction-role setup has expired or belongs to another user.")], ephemeral: true });
+        }
+        if (accessError) return interaction.reply({ embeds: [errorEmbed(accessError)], ephemeral: true });
+
+        const validation = validateReactionRoleSelection(interaction, state.selectedRoleIds);
+        if (validation.error) return interaction.reply({ embeds: [errorEmbed(validation.error)], ephemeral: true });
+        const mappings = parseReactionRoleEmojiMappings(
+          interaction.fields.getTextInputValue("reaction_role_emoji_mappings"),
+          validation.roles,
+          interaction.guild
+        );
+        if (mappings.error) return interaction.reply({ embeds: [errorEmbed(mappings.error)], ephemeral: true });
+
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const result = await saveReactionRoleSetup(state, interaction, mappings.emojiByRoleId);
+          if (result.error) return interaction.editReply({ embeds: [errorEmbed(result.error)] });
+          state.completed = true;
+          return interaction.editReply({
+            embeds: [publicEmbed("Reaction-Role Panel Published",
+              `Panel **#${result.panelId}** was published in ${result.channel}. [Open panel](https://discord.com/channels/${interaction.guildId}/${result.channel.id}/${result.message.id})`,
+              0x57F287)]
+          });
+        } catch (error) {
+          console.error("Could not publish reaction-role panel with emojis:", error);
+          return interaction.editReply({ embeds: [errorEmbed("I couldn't publish the panel. Check my channel permissions and try again.")] });
+        }
+      }
+
       if (interaction.customId.startsWith("leaderboard_score:")) {
         const [, boardIdText, ownerId, targetId] = interaction.customId.split(":");
         if (ownerId !== interaction.user.id) {
@@ -6911,8 +7518,34 @@ client.on("interactionCreate", async interaction => {
     }
 
     if (interaction.isRoleSelectMenu()) {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+      const reactionRoleSelect = interaction.customId.match(/^rr_roles:([a-f0-9]{20})$/);
+      if (!reactionRoleSelect && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ embeds: [errorEmbed("Only administrators can change setup.")], ephemeral: true });
+      }
+
+      if (reactionRoleSelect) {
+        const state = reactionRoleSetupSessions.get(reactionRoleSelect[1]);
+        const accessError = reactionRoleManagerError(interaction);
+        if (!state || state.completed || state.userId !== interaction.user.id || state.guildId !== interaction.guildId) {
+          return interaction.reply({ embeds: [errorEmbed("This reaction-role setup has expired or belongs to another user.")], ephemeral: true });
+        }
+        if (accessError) return interaction.reply({ embeds: [errorEmbed(accessError)], ephemeral: true });
+        const validation = validateReactionRoleSelection(interaction, interaction.values);
+        if (validation.error) return interaction.reply({ embeds: [errorEmbed(validation.error)], ephemeral: true });
+
+        state.selectedRoleIds = validation.roles.map(role => role.id);
+        const preview = reactionRoleSetupPreview(state, interaction.guild);
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`rr_publish:${reactionRoleSelect[1]}`).setLabel("Publish Panel").setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`rr_emojis:${reactionRoleSelect[1]}`).setLabel("Set Optional Emojis").setStyle(ButtonStyle.Secondary)
+        );
+        const previewButtons = reactionRolePanelComponents(`preview-${reactionRoleSelect[1]}`, preview.roles, true);
+        return interaction.update({
+          content: "Review the panel preview below. You can publish it now or set optional button emojis first.",
+          embeds: [preview.embed],
+          components: [...previewButtons, actionRow],
+          allowedMentions: { parse: [] }
+        });
       }
 
       if (interaction.customId === "setup_blacklist_role_select") {
@@ -8071,6 +8704,7 @@ client.once(Events.ClientReady, async () => {
     }
 
     await initializeBlacklistGuild(guild);
+    await upgradeReactionRolePanels(guild);
   }
 
   resumeGiveaways();
@@ -8080,6 +8714,15 @@ client.once(Events.ClientReady, async () => {
     await registerCommands();
   } catch (error) {
     console.error("❌ Command registration or duplicate cleanup failed; command state may be partially updated:", error);
+  }
+
+  // Web dashboard bridge. Disable with DASHBOARD_API_ENABLED=0.
+  if (String(process.env.DASHBOARD_API_ENABLED || "1") !== "0") {
+    try {
+      startDashboardApi({ db, client });
+    } catch (error) {
+      console.error("❌ Dashboard API failed to start:", error.message);
+    }
   }
 });
 
