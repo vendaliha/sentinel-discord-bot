@@ -1,0 +1,25 @@
+{
+  "name": "jjs-moderation-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discord moderation and tryout bot",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^2.5.1",
+    "better-sqlite3": "^12.2.0",
+    "discord-api-types": "^0.38.15",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.6.1",
+    "groq-sdk": "^1.6.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
