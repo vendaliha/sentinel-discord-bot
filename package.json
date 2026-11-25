@@ -6,7 +6,8 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dashboard-api": "node dashboard-api.js"
   },
   "engines": {
     "node": ">=22"
