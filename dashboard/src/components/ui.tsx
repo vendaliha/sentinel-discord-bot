@@ -33,11 +33,24 @@ export function Avatar({
   name,
   hue = 245,
   size = 36,
+  src,
 }: {
   name: string;
   hue?: number;
   size?: number;
+  src?: string;
 }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="inline-flex shrink-0 rounded-full object-cover ring-1 ring-white/10"
+        style={{ width: size, height: size }}
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-1 ring-white/10"

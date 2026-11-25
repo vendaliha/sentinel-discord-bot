@@ -164,3 +164,77 @@ export const InboxIcon = (p: IconProps) => (
     <path d="M4 13h4l1.5 2.5h5L16 13h4" />
   </Icon>
 );
+
+export const TrophyIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 4h8v4a4 4 0 0 1-8 0V4z" />
+    <path d="M8 5H5v1a3 3 0 0 0 3 3M16 5h3v1a3 3 0 0 1-3 3" />
+    <path d="M12 12v4M9 20h6M10 16h4l.5 4h-5l.5-4z" />
+  </Icon>
+);
+
+export const TicketIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 9V6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5V9a3 3 0 0 0 0 6v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5V15a3 3 0 0 0 0-6z" />
+    <path d="M12 5v14" strokeDasharray="2 2.5" />
+  </Icon>
+);
+
+export const GiftIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="8.5" width="17" height="12" rx="1.8" />
+    <path d="M3.5 12.5h17M12 8.5V21" />
+    <path d="M12 8.5C10.5 5 8.6 3.6 7.3 4.5 6 5.4 7 8.5 12 8.5zM12 8.5c1.5-3.5 3.4-4.9 4.7-4 .3.9-.7 4-4.7 4z" />
+  </Icon>
+);
+
+export const SparkleIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3l1.9 4.9L19 9.8l-5.1 1.9L12 16.6l-1.9-4.9L5 9.8l5.1-1.9L12 3z" />
+    <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" />
+  </Icon>
+);
+
+export const LockIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5" y="10" width="14" height="10" rx="2" />
+    <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" />
+    <path d="M12 14v2.5" />
+  </Icon>
+);
+
+export const DatabaseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <ellipse cx="12" cy="6" rx="7.5" ry="3" />
+    <path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6" />
+    <path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3" />
+  </Icon>
+);
+
+export const InfoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5.5M12 8.2v.2" />
+  </Icon>
+);
+
+export const KeyIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="8" cy="8" r="4" />
+    <path d="M11 11l8 8M16 16l2-2M18.5 18.5l1.8-1.8" />
+  </Icon>
+);
+
+export const CogIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M12 3.5v2.2M12 18.3v2.2M4.9 7.6l1.9 1.1M17.2 15.3l1.9 1.1M4.9 16.4l1.9-1.1M17.2 8.7l1.9-1.1" />
+  </Icon>
+);
+
+export const ScrollIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6 4h10a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2V4z" />
+    <path d="M6 4a2 2 0 0 0-2 2v2h2M9.5 9h5M9.5 12.5h5M9.5 16h3" />
+  </Icon>
+);

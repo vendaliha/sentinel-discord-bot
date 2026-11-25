@@ -8747,7 +8747,27 @@ client.once(Events.ClientReady, async () => {
   // Web dashboard bridge. Disable with DASHBOARD_API_ENABLED=0.
   if (String(process.env.DASHBOARD_API_ENABLED || "1") !== "0") {
     try {
-      startDashboardApi({ db, client });
+      startDashboardApi({
+        db,
+        client,
+        actions: {
+          endGiveaway,
+          rerollGiveaway,
+          cancelGiveaway,
+          publishLeaderboard,
+          assignLeaderboardSpot,
+          swapLeaderboardSpots,
+          doGradeUpdate,
+          addModLog,
+          findGradeRole,
+          commands: COMMANDS,
+          logEvents: LOG_EVENT_OPTIONS,
+          gradeRoles: GRADE_ROLES,
+          sub1Roles: SUB1_ROLES,
+          sub2Roles: SUB2_ROLES,
+          version: require("./package.json").version
+        }
+      });
     } catch (error) {
       console.error("❌ Dashboard API failed to start:", error.message);
     }

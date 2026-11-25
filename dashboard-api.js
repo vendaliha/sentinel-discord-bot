@@ -21,6 +21,7 @@ const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10");
 const Database = require("better-sqlite3");
 const dotenv = require("dotenv");
+const { createSections } = require("./dashboard-sections");
 
 const PREFIX_OPTIONS = ["!", ".", "?", "-", ">", ",", "+"];
 const SECURITY_ACTIONS = new Set(["warn", "timeout", "kick"]);
@@ -248,6 +249,7 @@ function startDashboardApi(options = {}) {
     authorizeUrl: options.oauth?.authorizeUrl || process.env.DISCORD_OAUTH_AUTHORIZE_URL || "https://discord.com/oauth2/authorize",
     apiBase: options.oauth?.apiBase || process.env.DISCORD_API_BASE || "https://discord.com/api/v10"
   };
+  const actions = options.actions || {};
   const authConfigured = Boolean(oauth.clientId && oauth.clientSecret && oauth.sessionSecret);
   const sessionTtlMs = Math.max(60_000, Number(process.env.DASHBOARD_SESSION_TTL_MS || 8 * 60 * 60 * 1000));
   const webOrigin = origins[0] || "";
@@ -286,6 +288,15 @@ function startDashboardApi(options = {}) {
     }
     return row.guild_id;
   }
+
+  const sections = createSections({
+    client,
+    actions,
+    ApiError,
+    getDb: () => getDb(),
+    resolveUser: id => resolveUser(id),
+    fallbackUser: id => fallbackUser(id)
+  });
 
   // --- Sessions -------------------------------------------------------
 
@@ -772,6 +783,12 @@ function startDashboardApi(options = {}) {
     }
 
     const todayStart = startOfDay();
+    const stats = sections.overviewStats(conn, guildId);
+    const memberActivity = sections.activity(conn, guildId);
+    const series = buildActivity(conn, guildId);
+    series.forEach((point, index) => {
+      point.warnings = memberActivity[index]?.warnings || 0;
+    });
     const status = botStatus();
     status.commandsToday =
       conn.prepare("SELECT COUNT(*) AS count FROM moderation WHERE guild_id = ? AND created_at >= ?")
@@ -796,10 +813,11 @@ function startDashboardApi(options = {}) {
           deleteTriggerMessages: true,
           retentionDays: 90
         },
+        stats,
         cases: await buildCases(conn, guildId),
         members: await buildMembers(conn, guildId),
         rules: buildRules(conn, guildId, todayStart),
-        activity: buildActivity(conn, guildId),
+        activity: series,
         log: await buildLog(conn, guildId)
       },
       capabilities: {
@@ -1188,6 +1206,184 @@ function startDashboardApi(options = {}) {
           200,
           await memberAction(conn, target.guildId, actionMatch[1], actionMatch[2], body)
         );
+      }
+
+      // --- Dashboard sections -------------------------------------------
+
+      const readRoutes = {
+        "/api/overview": async (conn, guildId, guild) => ({
+          stats: sections.overviewStats(conn, guildId),
+          activity: sections.activity(conn, guildId),
+          bot: botStatus(),
+          guild: await enrichGuild(conn, guildId, guild)
+        }),
+        "/api/blacklist": (conn, guildId) =>
+          sections.blacklist(conn, guildId, { status: url.searchParams.get("status") || "all" }),
+        "/api/security": (conn, guildId) => ({
+          ...sections.security(conn, guildId),
+          rules: buildRules(conn, guildId, startOfDay())
+        }),
+        "/api/logs": (conn, guildId) => sections.logs(conn, guildId),
+        "/api/leaderboards": (conn, guildId) => sections.leaderboards(conn, guildId),
+        "/api/grades": (conn, guildId) => sections.grades(conn, guildId),
+        "/api/giveaways": (conn, guildId) => sections.giveaways(conn, guildId),
+        "/api/tickets": (conn, guildId) => sections.tickets(conn, guildId),
+        "/api/community": (conn, guildId) => sections.community(conn, guildId),
+        "/api/roles": (conn, guildId) => sections.roles(conn, guildId),
+        "/api/permissions": (conn, guildId) => sections.permissions(conn, guildId),
+        "/api/config": (conn, guildId) => sections.configuration(conn, guildId)
+      };
+
+      if (req.method === "GET" && readRoutes[pathname]) {
+        const conn = getDb();
+        const target = requestGuild(req, conn, url.searchParams.get("guildId"));
+        return sendJson(res, 200, await readRoutes[pathname](conn, target.guildId, target.guild));
+      }
+
+      if (pathname === "/api/members" && req.method === "GET") {
+        const conn = getDb();
+        const target = requestGuild(req, conn, url.searchParams.get("guildId"));
+        const memberId = url.searchParams.get("id");
+        if (memberId) return sendJson(res, 200, await sections.memberDetail(conn, target.guildId, memberId));
+        return sendJson(res, 200, {
+          members: await sections.members(conn, target.guildId, url.searchParams.get("query") || "")
+        });
+      }
+
+      if (pathname === "/api/bot" && req.method === "GET") {
+        requireSession(req);
+        return sendJson(res, 200, sections.botInfo());
+      }
+
+      if (pathname === "/api/backups" && req.method === "GET") {
+        requireSession(req);
+        return sendJson(res, 200, sections.backups());
+      }
+
+      // --- Section writes -----------------------------------------------
+
+      const writeTarget = (capability = "manage") => {
+        const conn = getDb();
+        const target = requestGuild(req, conn, url.searchParams.get("guildId"));
+        requireCsrf(req, target.session);
+        requireGuildPermission(target.guild, capability);
+        return { conn, guildId: target.guildId, actorId: target.session?.user?.id || "dashboard" };
+      };
+
+      if (pathname === "/api/security/trusted" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, sections.updateSecurity(conn, guildId, await readBody(req)));
+      }
+
+      if (pathname === "/api/logs" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, sections.updateLogs(conn, guildId, await readBody(req)));
+      }
+
+      if (pathname === "/api/community" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, sections.updateCommunity(conn, guildId, await readBody(req)));
+      }
+
+      if (pathname === "/api/config" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, sections.updateConfiguration(conn, guildId, await readBody(req)));
+      }
+
+      if (pathname === "/api/permissions" && req.method === "PATCH") {
+        const { conn, guildId, actorId } = writeTarget();
+        return sendJson(res, 200, sections.updateCommandPermission(conn, guildId, await readBody(req), actorId));
+      }
+
+      if (pathname === "/api/tickets" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, sections.updateTicketSettings(conn, guildId, await readBody(req)));
+      }
+
+      if (pathname === "/api/tickets/panel" && req.method === "POST") {
+        const { conn, guildId, actorId } = writeTarget();
+        return sendJson(res, 200, await sections.publishTicketPanel(conn, guildId, await readBody(req), actorId));
+      }
+
+      if (pathname === "/api/leaderboards" && req.method === "POST") {
+        const { conn, guildId, actorId } = writeTarget();
+        return sendJson(res, 200, await sections.createLeaderboard(conn, guildId, await readBody(req), actorId));
+      }
+
+      if (pathname === "/api/scores/channel" && req.method === "PATCH") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, await sections.setScoreChannel(conn, guildId, await readBody(req)));
+      }
+
+      const boardMatch = pathname.match(/^\/api\/leaderboards\/(\d+)$/);
+      if (boardMatch && (req.method === "PATCH" || req.method === "DELETE")) {
+        const { conn, guildId } = writeTarget();
+        const boardId = Number(boardMatch[1]);
+        return sendJson(
+          res,
+          200,
+          req.method === "DELETE"
+            ? await sections.deleteLeaderboard(conn, guildId, boardId)
+            : await sections.updateLeaderboard(conn, guildId, boardId, await readBody(req))
+        );
+      }
+
+      const playersMatch = pathname.match(/^\/api\/leaderboards\/(\d+)\/players$/);
+      if (playersMatch && req.method === "POST") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, await sections.addPlayer(conn, guildId, Number(playersMatch[1]), await readBody(req)));
+      }
+
+      const playerMatch = pathname.match(/^\/api\/leaderboards\/(\d+)\/players\/(\d+)$/);
+      if (playerMatch && (req.method === "PATCH" || req.method === "DELETE")) {
+        const { conn, guildId } = writeTarget();
+        const boardId = Number(playerMatch[1]);
+        return sendJson(
+          res,
+          200,
+          req.method === "DELETE"
+            ? await sections.removePlayer(conn, guildId, boardId, playerMatch[2])
+            : await sections.updatePlayer(conn, guildId, boardId, playerMatch[2], await readBody(req))
+        );
+      }
+
+      const scoreMatch = pathname.match(/^\/api\/leaderboards\/(\d+)\/score$/);
+      if (scoreMatch && req.method === "POST") {
+        const { conn, guildId } = writeTarget();
+        return sendJson(res, 200, await sections.setPlayerScore(conn, guildId, Number(scoreMatch[1]), await readBody(req)));
+      }
+
+      if (pathname === "/api/grades/assign" && req.method === "POST") {
+        const { guildId, actorId } = writeTarget();
+        return sendJson(res, 200, await sections.assignGrade(guildId, await readBody(req), actorId));
+      }
+
+      const giveawayMatch = pathname.match(/^\/api\/giveaways\/(\d+)(?:\/(end|reroll|delete))?$/);
+      if (giveawayMatch) {
+        const { conn, guildId } = writeTarget();
+        const giveawayId = Number(giveawayMatch[1]);
+        const giveawayAction = giveawayMatch[2];
+        if (giveawayAction && req.method === "POST") {
+          return sendJson(res, 200, await sections.giveawayAction(conn, guildId, giveawayId, giveawayAction));
+        }
+        if (!giveawayAction && req.method === "PATCH") {
+          return sendJson(res, 200, sections.updateGiveaway(conn, guildId, giveawayId, await readBody(req)));
+        }
+      }
+
+      const memberSanctionMatch = pathname.match(/^\/api\/members\/(\d+)\/(kick|ban|unban)$/);
+      if (memberSanctionMatch && req.method === "POST") {
+        const { guildId, actorId } = writeTarget("moderate");
+        return sendJson(
+          res,
+          200,
+          await sections.memberModeration(guildId, memberSanctionMatch[1], memberSanctionMatch[2], await readBody(req), actorId)
+        );
+      }
+
+      if (pathname === "/api/backups" && req.method === "POST") {
+        const { conn } = writeTarget();
+        return sendJson(res, 200, await sections.createBackup(conn));
       }
 
       throw new ApiError(404, `No route for ${req.method} ${pathname}`);

@@ -1,207 +1,237 @@
-import { useMemo, useState } from "react";
-import { InboxIcon, MuteIcon, SearchIcon, ShieldIcon, UsersIcon } from "../components/icons";
-import { Avatar, Badge, EmptyState, StatCard } from "../components/ui";
-import { formatDate, formatNumber, timeAgo } from "../lib/format";
+import { useState } from "react";
+import { Badge } from "../components/ui";
+import {
+  Cell,
+  ConfirmButton,
+  ErrorNote,
+  Input,
+  Loading,
+  Row,
+  Section,
+  Stat,
+  Table,
+  Textarea,
+} from "../components/Section";
+import { formatDateTime } from "../lib/format";
+import { runMemberAction } from "../lib/botApi";
+import { sectionsApi } from "../lib/sections";
 import { useDashboard } from "../lib/store";
+import { useSection } from "../lib/useSection";
 
 export default function MembersPage() {
-  const { data, warnMember, muteMember, unmuteMember, capabilities } = useDashboard();
+  const { notify, data: dashboard } = useDashboard();
   const [query, setQuery] = useState("");
-  const [role, setRole] = useState("all");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const roles = useMemo(
-    () => Array.from(new Set(data.members.flatMap((member) => member.roles))).sort(),
-    [data.members],
+  const list = useSection(() => sectionsApi.members(query), [query]);
+  const detail = useSection(
+    () => (selected ? sectionsApi.member(selected) : Promise.resolve(null)),
+    [selected],
   );
 
-  const members = useMemo(() => {
-    const search = query.trim().toLowerCase();
-    return data.members
-      .filter((member) => (role === "all" ? true : member.roles.includes(role)))
-      .filter((member) =>
-        search === ""
-          ? true
-          : `${member.name} ${member.tag} ${member.roles.join(" ")} ${member.id}`
-              .toLowerCase()
-              .includes(search),
-      )
-      .sort((a, b) => b.warnings - a.warnings || a.name.localeCompare(b.name));
-  }, [data.members, query, role]);
+  const muteMinutes = dashboard.settings.defaultMuteMinutes;
 
-  const now = Date.now();
-  const mutedCount = data.members.filter(
-    (member) => member.mutedUntil && new Date(member.mutedUntil).getTime() > now,
-  ).length;
-  const flaggedCount = data.members.filter((member) => member.warnings > 0).length;
+  async function act(action: "warn" | "mute" | "unmute") {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await runMemberAction(selected, action, {
+        minutes: action === "mute" ? muteMinutes : undefined,
+        reason: reason || undefined,
+      });
+      notify(
+        action === "warn"
+          ? "Warning recorded"
+          : action === "mute"
+            ? `Member muted for ${muteMinutes}m`
+            : "Timeout cleared",
+      );
+      setReason("");
+      await Promise.all([list.reload(), detail.reload()]);
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : "That action failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sanction(action: "kick" | "ban" | "unban") {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await sectionsApi.memberSanction(selected, action, reason || "No reason provided");
+      notify(action === "kick" ? "Member kicked" : action === "ban" ? "Member banned" : "Ban lifted");
+      setReason("");
+      await Promise.all([list.reload(), detail.reload()]);
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : `That ${action} failed.`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">Members</h1>
-        <p className="mt-1 text-sm text-mist-400">
-          {data.guild.memberCountKnown === false
-            ? "Member counts unavailable while the bot is offline"
-            : `${formatNumber(data.guild.memberCount)} members`}{" "}
-          · {data.members.length} tracked in the moderation database
-        </p>
-      </div>
+      {list.error ? <ErrorNote message={list.error} onRetry={() => void list.reload()} /> : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Tracked members"
-          value={String(data.members.length)}
-          hint="appear in warnings or cases"
-          icon={<UsersIcon size={16} />}
+      <Section
+        title="Members"
+        description="Everyone the bot has a record for — warnings, strikes, moderation actions and blacklists."
+      >
+        <Input
+          placeholder="Search by username or Discord ID"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          aria-label="Search members"
+          className="mb-4 max-w-md"
         />
-        <StatCard
-          label="Muted now"
-          value={String(mutedCount)}
-          hint={`default mute ${data.settings.defaultMuteMinutes}m`}
-          icon={<MuteIcon size={16} />}
-          accent={mutedCount > 0 ? "warn" : "good"}
-        />
-        <StatCard
-          label="With warnings"
-          value={String(flaggedCount)}
-          hint={
-            capabilities.memberActions
-              ? "warn and mute from here"
-              : "start the bot for member actions"
-          }
-          icon={<ShieldIcon size={16} />}
-          accent={flaggedCount > 0 ? "warn" : "neutral"}
-        />
-      </div>
-
-      <section className="card overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-line-soft p-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <SearchIcon
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mist-600"
-            />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name, ID or role"
-              className="input pl-9"
-              aria-label="Search members"
-            />
-          </div>
-          <select
-            value={role}
-            onChange={(event) => setRole(event.target.value)}
-            className="input w-auto"
-            aria-label="Filter by role"
-          >
-            <option value="all">All roles</option>
-            {roles.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {members.length === 0 ? (
-          <EmptyState
-            icon={<InboxIcon size={20} />}
-            title="No members found"
-            hint="Try a different name or ID, or reset the role filter."
-          />
+        {list.loading && !list.data ? (
+          <Loading label="Loading members…" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-line-soft text-[11px] uppercase tracking-wide text-mist-600">
-                  <th className="px-4 py-2.5 font-medium">Member</th>
-                  <th className="px-4 py-2.5 font-medium">Roles</th>
-                  <th className="px-4 py-2.5 font-medium">Warnings</th>
-                  <th className="px-4 py-2.5 font-medium">First seen</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line-soft">
-                {members.map((member) => {
-                  const muted =
-                    member.mutedUntil && new Date(member.mutedUntil).getTime() > now;
-                  return (
-                    <tr key={member.id} className="hover:bg-ink-800/50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={member.name} hue={member.hue} size={32} />
-                          <div>
-                            <p className="text-mist-100">{member.name}</p>
-                            <p className="mono text-[11px] text-mist-600">
-                              #{member.tag} · {member.id}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {member.roles.length === 0 ? (
-                          <span className="text-xs text-mist-600">—</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {member.roles.map((item) => (
-                              <Badge key={item} tone={item === "Moderator" ? "brand" : "neutral"}>
-                                {item}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={
-                            member.warnings > 0
-                              ? "mono font-medium text-warn"
-                              : "mono text-mist-500"
-                          }
-                        >
-                          {member.warnings}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-mist-400">
-                        {formatDate(member.joinedAt)}
-                        <p className="text-[10px] text-mist-600">{timeAgo(member.joinedAt)}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {muted ? (
-                          <Badge tone="warn">Muted</Badge>
-                        ) : (
-                          <Badge tone="good">Active</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => void warnMember(member.id)}
-                            className="btn-ghost px-2 py-1 text-xs"
-                          >
-                            Warn
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void (muted ? unmuteMember(member.id) : muteMember(member.id))
-                            }
-                            className={`px-2 py-1 text-xs ${muted ? "btn-ghost" : "btn-danger"}`}
-                          >
-                            {muted ? "Unmute" : "Mute"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table head={["Member", "Warnings", "Strikes", "Actions", "Blacklist", "First seen", ""]} empty="No members recorded yet.">
+            {(list.data?.members ?? []).map((member) => (
+              <Row key={member.id}>
+                <Cell>
+                  <span className="text-mist-100">{member.name}</span>
+                  <span className="mono ml-1.5 text-[11px] text-mist-600">{member.id}</span>
+                </Cell>
+                <Cell className="mono">{member.warnings}</Cell>
+                <Cell className="mono">{member.strikes}</Cell>
+                <Cell className="mono">{member.actions}</Cell>
+                <Cell>{member.blacklisted ? <Badge tone="bad">Blacklisted</Badge> : <span className="text-mist-600">—</span>}</Cell>
+                <Cell className="whitespace-nowrap text-[11px]">
+                  {member.firstSeen ? formatDateTime(member.firstSeen) : "—"}
+                </Cell>
+                <Cell>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1 text-[11px]"
+                    onClick={() => setSelected(member.id)}
+                  >
+                    Open
+                  </button>
+                </Cell>
+              </Row>
+            ))}
+          </Table>
         )}
-      </section>
+      </Section>
+
+      {selected ? (
+        <Section
+          title={`Member ${detail.data?.user?.name ?? selected}`}
+          description="Full history from the database, with the actions this dashboard can perform."
+          actions={
+            <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setSelected(null)}>
+              Close
+            </button>
+          }
+        >
+          {detail.loading && !detail.data ? (
+            <Loading label="Loading member history…" />
+          ) : detail.data ? (
+            <div className="space-y-4">
+              {detail.error ? <ErrorNote message={detail.error} onRetry={() => void detail.reload()} /> : null}
+              <div className="grid gap-3 sm:grid-cols-4">
+                <Stat label="Warnings" value={detail.data.counts.warnings} tone="warn" />
+                <Stat label="Strikes" value={detail.data.counts.strikes} tone="bad" />
+                <Stat label="Actions" value={detail.data.counts.moderation} />
+                <Stat label="Blacklists" value={detail.data.counts.blacklists} tone="bad" />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                <div>
+                  <span className="label">Reason (used by every action below)</span>
+                  <Textarea
+                    rows={2}
+                    placeholder="Reason for this action"
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <button type="button" className="btn-primary" disabled={busy} onClick={() => void act("warn")}>
+                    Warn
+                  </button>
+                  <button type="button" className="btn-ghost" disabled={busy} onClick={() => void act("mute")}>
+                    Mute {muteMinutes}m
+                  </button>
+                  <button type="button" className="btn-ghost" disabled={busy} onClick={() => void act("unmute")}>
+                    Unmute
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <ConfirmButton
+                  title="Kick this member?"
+                  message="Discord removes them from the server. The action is written to the moderation log."
+                  confirmLabel="Kick"
+                  onConfirm={() => sanction("kick")}
+                >
+                  Kick
+                </ConfirmButton>
+                <ConfirmButton
+                  title="Ban this member?"
+                  message="Discord bans them from the server. The action is written to the moderation log and blacklist logs."
+                  confirmLabel="Ban"
+                  onConfirm={() => sanction("ban")}
+                >
+                  Ban
+                </ConfirmButton>
+                <ConfirmButton
+                  title="Unban this user?"
+                  message="The ban is lifted in Discord. They need an invite to rejoin."
+                  confirmLabel="Unban"
+                  onConfirm={() => sanction("unban")}
+                >
+                  Unban
+                </ConfirmButton>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mist-500">Warnings</h3>
+                  <Table head={["ID", "Reason", "When"]} empty="No warnings.">
+                    {detail.data.warnings.map((entry) => (
+                      <Row key={entry.id}>
+                        <Cell className="mono">#{entry.id}</Cell>
+                        <Cell className="max-w-[14rem] truncate">{entry.reason}</Cell>
+                        <Cell className="whitespace-nowrap text-[11px]">{formatDateTime(entry.createdAt)}</Cell>
+                      </Row>
+                    ))}
+                  </Table>
+                </div>
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-mist-500">Moderation history</h3>
+                  <Table head={["Action", "Reason", "When"]} empty="No actions.">
+                    {detail.data.moderation.map((entry) => (
+                      <Row key={entry.id}>
+                        <Cell className="capitalize">{entry.action.replace(/_/g, " ")}</Cell>
+                        <Cell className="max-w-[14rem] truncate">{entry.reason ?? "—"}</Cell>
+                        <Cell className="whitespace-nowrap text-[11px]">
+                          {formatDateTime(entry.createdAt)}
+                          {entry.durationMs ? ` · ${Math.round(entry.durationMs / 60000)}m` : ""}
+                        </Cell>
+                      </Row>
+                    ))}
+                  </Table>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-mist-600">
+                {detail.data.inServer
+                  ? `In server · ${detail.data.roles.length} role(s)${detail.data.joinedAt ? ` · joined ${formatDateTime(detail.data.joinedAt)}` : ""}`
+                  : "This member is not in the server right now; Discord actions will fail until they rejoin."}
+              </p>
+            </div>
+          ) : (
+            <ErrorNote message={detail.error || "Could not load this member."} onRetry={() => void detail.reload()} />
+          )}
+        </Section>
+      ) : null}
     </div>
   );
 }

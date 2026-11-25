@@ -4,34 +4,70 @@ import { formatNumber } from "../lib/format";
 import { useDashboard } from "../lib/store";
 import {
   AlertIcon,
+  BanIcon,
   BoltIcon,
   CheckIcon,
   CloseIcon,
+  CogIcon,
+  DatabaseIcon,
+  GiftIcon,
+  InfoIcon,
+  KeyIcon,
+  LockIcon,
   MenuIcon,
-  RefreshIcon,
   OverviewIcon,
-  SettingsIcon,
+  RefreshIcon,
+  ScrollIcon,
   ShieldIcon,
   SlidersIcon,
+  SparkleIcon,
+  TicketIcon,
+  TrophyIcon,
   UsersIcon,
 } from "./icons";
 import { Avatar } from "./ui";
 
 const nav = [
   { to: "/", label: "Overview", icon: OverviewIcon, end: true, section: "Workspace" },
-  { to: "/cases", label: "Moderation", icon: ShieldIcon, end: false, section: "Workspace" },
-  { to: "/automod", label: "Automod", icon: SlidersIcon, end: false, section: "Workspace" },
-  { to: "/members", label: "Members", icon: UsersIcon, end: false, section: "Community" },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "System" },
+  { to: "/moderation", label: "Moderation", icon: ShieldIcon, end: false, section: "Workspace" },
+  { to: "/blacklist", label: "Blacklist", icon: BanIcon, end: false, section: "Workspace" },
+  { to: "/members", label: "Members", icon: UsersIcon, end: false, section: "Workspace" },
+  { to: "/security", label: "Security", icon: SlidersIcon, end: false, section: "Protection" },
+  { to: "/logs", label: "Server Logs", icon: ScrollIcon, end: false, section: "Protection" },
+  { to: "/leaderboards", label: "Leaderboards", icon: TrophyIcon, end: false, section: "Community" },
+  { to: "/grades", label: "Grade Management", icon: SparkleIcon, end: false, section: "Community" },
+  { to: "/tickets", label: "Tickets", icon: TicketIcon, end: false, section: "Community" },
+  { to: "/giveaways", label: "Giveaways", icon: GiftIcon, end: false, section: "Community" },
+  { to: "/community", label: "Community", icon: BoltIcon, end: false, section: "Community" },
+  { to: "/roles", label: "Role Management", icon: LockIcon, end: false, section: "Community" },
+  { to: "/permissions", label: "Permissions", icon: KeyIcon, end: false, section: "System" },
+  { to: "/command-settings", label: "Command Settings", icon: ShieldIcon, end: false, section: "System" },
+  { to: "/config", label: "Server Configuration", icon: CogIcon, end: false, section: "System" },
+  { to: "/backups", label: "Backups", icon: DatabaseIcon, end: false, section: "System" },
+  { to: "/bot", label: "Bot Information", icon: InfoIcon, end: false, section: "System" },
 ];
 
 const pageTitles: Record<string, string> = {
   "/": "Overview",
-  "/cases": "Moderation",
-  "/automod": "Automod",
+  "/moderation": "Moderation",
+  "/blacklist": "Blacklist",
   "/members": "Members",
-  "/settings": "Settings",
+  "/security": "Security",
+  "/logs": "Server Logs",
+  "/leaderboards": "Leaderboards",
+  "/grades": "Grade Management",
+  "/tickets": "Tickets",
+  "/giveaways": "Giveaways",
+  "/community": "Community",
+  "/roles": "Role Management",
+  "/permissions": "Permissions",
+  "/command-settings": "Command Settings",
+  "/config": "Server Configuration",
+  "/backups": "Backups",
+  "/bot": "Bot Information",
 };
+
+const sections = ["Workspace", "Protection", "Community", "System"];
 
 export default function Layout() {
   const { data, toasts, source, apiError, loading, refresh, auth, chooseGuild, signOutUser } =
@@ -45,7 +81,7 @@ export default function Layout() {
   }, [location.pathname]);
 
   const sidebar = (
-    <div className="flex h-full flex-col gap-6 border-r border-line bg-ink-900/95 px-3 py-4">
+    <div className="flex h-full flex-col gap-4 border-r border-line bg-ink-900/95 px-3 py-4">
       <div className="flex items-center justify-between px-1.5">
         <div className="flex items-center gap-2.5">
           <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-lg shadow-brand-600/30">
@@ -72,7 +108,7 @@ export default function Layout() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-mist-100">{data.guild.name}</p>
             <p className="text-[11px] text-mist-500">
-              {formatNumber(data.guild.memberCount)} members
+              {data.guild.memberCountKnown ? `${formatNumber(data.guild.memberCount)} members` : "Member count unavailable"}
             </p>
           </div>
           <span
@@ -85,8 +121,8 @@ export default function Layout() {
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-5">
-        {["Workspace", "Community", "System"].map((section) => (
+      <nav className="flex-1 space-y-3 overflow-y-auto pr-1" aria-label="Dashboard navigation">
+        {sections.map((section) => (
           <div key={section}>
             <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-mist-600">
               {section}
@@ -100,7 +136,7 @@ export default function Layout() {
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+                      `flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${
                         isActive
                           ? "bg-brand-500/12 font-medium text-white ring-1 ring-inset ring-brand-500/25"
                           : "text-mist-400 hover:bg-ink-800 hover:text-mist-100"
@@ -108,7 +144,7 @@ export default function Layout() {
                     }
                   >
                     <item.icon size={17} />
-                    {item.label}
+                    <span className="truncate">{item.label}</span>
                   </NavLink>
                 ))}
             </div>
@@ -142,7 +178,7 @@ export default function Layout() {
         <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-mist-400">
           <div>
             <p className="text-mist-600">Latency</p>
-            <p className="mono text-mist-200">{data.bot.latencyMs} ms</p>
+            <p className="mono text-mist-200">{data.bot.latencyMs ?? "—"} ms</p>
           </div>
           <div>
             <p className="text-mist-600">Uptime</p>
@@ -181,7 +217,7 @@ export default function Layout() {
               <MenuIcon size={18} />
             </button>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-mist-500">{data.guild.name}</span>
+              <span className="max-w-[10rem] truncate text-mist-500">{data.guild.name}</span>
               <span className="text-mist-600">/</span>
               <span className="font-medium text-mist-100">{title}</span>
             </div>
@@ -190,7 +226,7 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-1.5 rounded-full border border-line bg-ink-850 px-2.5 py-1 text-[11px] text-mist-400 sm:flex">
               <BoltIcon size={13} className="text-warn" />
-              <span className="mono">{formatNumber(data.bot.commandsToday)}</span> commands today
+              <span className="mono">{formatNumber(data.bot.commandsToday)}</span> actions today
             </span>
             {auth.authenticated && auth.user ? (
               <div className="flex items-center gap-2">
@@ -214,11 +250,7 @@ export default function Layout() {
                     {auth.user.name || auth.user.username}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void signOutUser()}
-                  className="btn-ghost px-2.5 py-1.5 text-xs"
-                >
+                <button type="button" onClick={() => void signOutUser()} className="btn-ghost px-2.5 py-1.5 text-xs">
                   Sign out
                 </button>
               </div>
@@ -247,12 +279,7 @@ export default function Layout() {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                disabled={loading}
-                className="btn-ghost shrink-0"
-              >
+              <button type="button" onClick={() => void refresh()} disabled={loading} className="btn-ghost shrink-0">
                 <RefreshIcon size={14} />
                 {loading ? "Connecting…" : "Retry"}
               </button>

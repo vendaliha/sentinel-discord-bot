@@ -49,13 +49,25 @@ Without those variables the API stays in local mode: it serves the single guild
 found in the database and is only reachable on `127.0.0.1`. Set them before
 exposing the dashboard to anyone else.
 
-| Route       | What it shows                                                                  |
-| ----------- | ------------------------------------------------------------------------------ |
-| `/`         | Guild stats, 14-day activity chart, bot health, recent cases                    |
-| `/cases`    | Cases from `blacklist_records` + `moderation`, filters and a case drawer        |
-| `/automod`  | A view over `security_settings` — toggles, thresholds, action, execution log    |
-| `/members`  | Members seen in `warnings`/`moderation`, with warn and mute/unmute actions       |
-| `/settings` | Prefix and log channel (written to the DB) plus browser-only preferences        |
+| Route                | What it shows                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `/`                  | Guild info, real counters, 14-day activity chart, bot health, recent cases/events    |
+| `/moderation`        | Searchable `moderation` + `blacklist_records` cases; resolve/reopen blacklist cases  |
+| `/blacklist`         | Blacklist history with category, moderator, stored role count, active/resolved       |
+| `/members`           | Members from warnings/moderation; warnings, strikes, history, warn/mute/kick/ban     |
+| `/security`          | Six automod modules, thresholds, actions, trusted roles/channels, recent events       |
+| `/logs`              | Log channel plus per-event toggles and the merged moderation/audit feed              |
+| `/leaderboards`      | Boards, players, spots, scores, score channel (positions need the running bot)         |
+| `/grades`            | Grade/SUB1/SUB2 role pickers and assignment through the live client                  |
+| `/tickets`           | Ticket settings, panel editor with Discord-style preview, *Publish to Discord*        |
+| `/giveaways`         | Active/history, edit prize and winner count, end, reroll, delete                      |
+| `/community`         | Welcome/goodbye editors, autorole, suggestion channel, polls, reminders              |
+| `/roles`             | Autorole, blacklist role, grade channel, reaction-role panels and mappings           |
+| `/permissions`       | Per-command role restrictions and the permission audit trail                         |
+| `/command-settings`  | Command switches (needs the bot for its registry)                                    |
+| `/config`            | Prefix, channels, appeal link, honeypot, anti-nuke and blacklist allowlists           |
+| `/backups`           | SQLite snapshots created with the online backup API (restore stays in Discord)        |
+| `/bot`               | Live identity, servers, latency, uptime and capability diagnostics                    |
 
 ### How the wiring works
 
@@ -81,6 +93,30 @@ Endpoints (all JSON, bound to `127.0.0.1:4100` by default):
 | POST   | `/api/members/:id/warn`             | Insert a warning (requires the bot)           |
 | POST   | `/api/members/:id/mute`             | Discord timeout, `{minutes}` (requires bot)   |
 | POST   | `/api/members/:id/unmute`           | Clear a timeout (requires the bot)            |
+| GET    | `/api/overview`                     | Counters, 14-day activity, bot and guild info |
+| GET    | `/api/blacklist`                    | Blacklist records + active/total counts       |
+| GET    | `/api/members`, `/api/members?id=`  | Member list / full member history             |
+| POST   | `/api/members/:id/(kick\|ban\|unban)` | Discord sanctions (requires the bot)        |
+| GET    | `/api/security`                     | Modules, thresholds, trusted IDs, events      |
+| PATCH  | `/api/security/trusted`             | `{trustedRoleIds?, trustedChannelIds?, accountAgeDays?}` |
+| GET/PATCH | `/api/logs`                      | Log channel and recorded event categories     |
+| GET    | `/api/leaderboards[/:id]`           | Boards, players, score channel                |
+| POST   | `/api/leaderboards/:id/players`     | Add a player `{userId, spot, robloxUsername, country, stage}` |
+| PATCH/DELETE | `/api/leaderboards/:id/players/:uid` | Edit, switch spot (`swapWith`) or remove |
+| POST   | `/api/leaderboards/:id/score`       | `{userId, score}`                             |
+| PATCH  | `/api/scores/channel`               | `{channelId}` — webhook target (requires bot) |
+| GET    | `/api/grades`                       | Grade/SUB role names and the grade channel    |
+| POST   | `/api/grades/assign`                | `{userId, grade, sub1, sub2}` (requires bot)  |
+| GET/PATCH | `/api/tickets`                   | Ticket settings and ticket rows               |
+| POST   | `/api/tickets/panel`                | Publish/update the panel (requires the bot)   |
+| GET/PATCH | `/api/giveaways[/:id]`           | Giveaway list, edit prize/winner count        |
+| POST   | `/api/giveaways/:id/(end\|reroll\|delete)` | Giveaway lifecycle (requires the bot) |
+| GET/PATCH | `/api/community`                 | Welcome/goodbye, autorole, suggestions channel |
+| GET    | `/api/roles`                        | Autorole, blacklist role, reaction-role panels |
+| GET/PATCH | `/api/permissions`               | Command roles/switches + audit trail          |
+| GET/PATCH | `/api/config`                    | Prefix, channels, allowlists                   |
+| GET/POST | `/api/backups`                    | List snapshots / create one                   |
+| GET    | `/api/bot`                          | Live bot identity, uptime, latency            |
 
 Discord actions use the bot's live client, so `/mute` from the dashboard needs the
 bot in the guild with **Timeout Members**. Bot-recorded `moderation` rows are
