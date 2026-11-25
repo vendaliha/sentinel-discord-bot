@@ -109,7 +109,8 @@ host as the dashboard (or a reverse proxy) and never publish `jjsbot.db`.
 
 ## Known gaps
 
-- `moderation` rows do not store durations or channels, so those fields show `—`
-  in the case drawer.
+- Mute durations and the channel are stored for new cases (`moderation.duration_ms`
+  and `moderation.channel_id`); rows recorded before that change still show `—`.
+  Member actions through the API have no channel yet.
 - Member names come from Discord; without a token the dashboard shows the user ID
   suffix and member counts as `—`.

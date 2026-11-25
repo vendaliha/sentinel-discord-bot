@@ -501,6 +501,12 @@ function startDashboardApi(options = {}) {
     return { id, name: `User ${String(id).slice(-4)}`, tag: String(id).slice(-4) };
   }
 
+  function channelLabel(channelId) {
+    if (!channelId) return null;
+    const cached = client?.channels?.cache?.get(channelId);
+    return cached?.name ? `#${cached.name}` : `Channel ${String(channelId).slice(-4)}`;
+  }
+
   function guildInfo(conn, guildId) {
     const cached = client?.guilds?.cache?.get(guildId);
     if (cached) {
@@ -645,9 +651,12 @@ function startDashboardApi(options = {}) {
         user,
         moderator: (await resolveUser(record.moderator_id))?.name || `User ${String(record.moderator_id).slice(-4)}`,
         reason: record.reason || "No reason recorded",
-        channel: record.action === "security_alert" ? "Automod" : "Moderation log",
+        channel:
+          channelLabel(record.channel_id) ||
+          (record.action === "security_alert" ? "Automod" : "Moderation log"),
         createdAt: new Date(Number(record.created_at)).toISOString(),
-        durationMinutes: null,
+        durationMinutes:
+          Number(record.duration_ms) > 0 ? Math.round(Number(record.duration_ms) / 60_000) : null,
         notes: []
       });
     }
