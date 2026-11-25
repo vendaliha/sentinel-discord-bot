@@ -447,6 +447,14 @@ if (!giveawayColumns.has("required_role_id")) {
   db.exec("ALTER TABLE giveaways ADD COLUMN required_role_id TEXT");
 }
 
+const moderationColumns = new Set(db.prepare("PRAGMA table_info(moderation)").all().map(column => column.name));
+if (!moderationColumns.has("duration_ms")) {
+  db.exec("ALTER TABLE moderation ADD COLUMN duration_ms INTEGER");
+}
+if (!moderationColumns.has("channel_id")) {
+  db.exec("ALTER TABLE moderation ADD COLUMN channel_id TEXT");
+}
+
 const leaderboardScoreColumns = new Set(
   db.prepare("PRAGMA table_info(leaderboard_scores)").all().map(column => column.name)
 );
@@ -2099,12 +2107,16 @@ async function sendGuildLogEmbed(guildId, action, userId, moderatorId, reason, e
   }
 }
 
-function addModLog(guildId, action, userId, moderatorId, reason, extraDescription = null) {
+function addModLog(guildId, action, userId, moderatorId, reason, extraDescription = null, meta = null) {
   const createdAt = now();
+  const durationMs =
+    Number.isFinite(meta?.durationMs) && meta.durationMs > 0 ? Math.round(meta.durationMs) : null;
+  const channelId =
+    typeof meta?.channelId === "string" && /^\d{5,25}$/.test(meta.channelId) ? meta.channelId : null;
   db.prepare(`
-    INSERT INTO moderation (guild_id, action, user_id, moderator_id, reason, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(guildId, action, userId, moderatorId, reason || null, createdAt);
+    INSERT INTO moderation (guild_id, action, user_id, moderator_id, reason, created_at, duration_ms, channel_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(guildId, action, userId, moderatorId, reason || null, createdAt, durationMs, channelId);
 
   sendGuildLogEmbed(guildId, action, userId, moderatorId, reason, extraDescription);
 }
@@ -2996,7 +3008,7 @@ async function doMute(guild, moderator, target, duration, reason) {
     return { error: "I couldn't mute that user. Check my Timeout Members permission and role hierarchy." };
   }
 
-  addModLog(guild.id, "mute", target.id, moderator.id, finalReason);
+  addModLog(guild.id, "mute", target.id, moderator.id, finalReason, null, { durationMs: ms });
 
   return {
     embed: publicEmbed("🔇 User Muted", `${userMention(target.id)} has been muted.`, 0x5865F2).addFields(
@@ -5918,7 +5930,9 @@ client.on("interactionCreate", async interaction => {
           VALUES (?, ?, ?, ?, ?)
         `).run(guild.id, target.id, interaction.user.id, reason, now());
 
-        addModLog(guild.id, "warn", target.id, interaction.user.id, reason);
+        addModLog(guild.id, "warn", target.id, interaction.user.id, reason, null, {
+          channelId: interaction.channelId
+        });
 
         let dmStatus = "❌ Failed";
         try {
@@ -6045,7 +6059,9 @@ client.on("interactionCreate", async interaction => {
           return interaction.editReply({ embeds: [errorEmbed("I couldn't kick that user.")] });
         }
 
-        addModLog(guild.id, "kick", target.id, interaction.user.id, reason || "No reason provided");
+        addModLog(guild.id, "kick", target.id, interaction.user.id, reason || "No reason provided", null, {
+          channelId: interaction.channelId
+        });
         return interaction.editReply({ embeds: [publicEmbed("👢 User Kicked", `${userMention(target.id)} was kicked.`, 0xED4245).addFields(
           { name: "👤 User", value: userMention(target.id), inline: true },
           { name: "👮 Moderator", value: userMention(interaction.user.id), inline: true },
@@ -6089,7 +6105,9 @@ client.on("interactionCreate", async interaction => {
           return interaction.editReply({ embeds: [errorEmbed("I couldn't ban that user.")] });
         }
 
-        addModLog(guild.id, "ban", targetId, interaction.user.id, reason);
+        addModLog(guild.id, "ban", targetId, interaction.user.id, reason, null, {
+          channelId: interaction.channelId
+        });
         const logResult = await sendBanLog(guild, targetId, target?.user || ban.user, interaction.user.id, reason);
         const response = publicEmbed("🔨 User Banned", `${userMention(targetId)} was banned from the server.`, 0xED4245);
         if (!logResult.sent) {
@@ -6120,7 +6138,9 @@ client.on("interactionCreate", async interaction => {
             return interaction.editReply({ embeds: [errorEmbed("I couldn't unban that user. Confirm the user ID and my Ban Members permission.")] });
           }
         }
-        addModLog(guild.id, "unban", targetId, interaction.user.id, reason);
+        addModLog(guild.id, "unban", targetId, interaction.user.id, reason, null, {
+          channelId: interaction.channelId
+        });
         return interaction.editReply({
           embeds: [publicEmbed("🔓 User Unbanned", `${userMention(targetId)} was unbanned.`, 0x57F287).addFields(
             { name: "User", value: userMention(targetId), inline: true },
@@ -7796,7 +7816,9 @@ client.on("messageCreate", async message => {
           db.prepare("INSERT INTO warnings (guild_id, user_id, moderator_id, reason, created_at)")
             .run(message.guild.id, message.author.id, message.guild.members.me.id, alert, now());
         }
-        addModLog(message.guild.id, "security_alert", message.author.id, message.guild.members.me.id, alert);
+        addModLog(message.guild.id, "security_alert", message.author.id, message.guild.members.me.id, alert, null, {
+        channelId: message.channelId
+      });
         return;
       }
     }
@@ -7970,7 +7992,9 @@ client.on("messageCreate", async message => {
       VALUES (?, ?, ?, ?, ?)
     `).run(message.guild.id, target.id, message.author.id, reason, now());
 
-    addModLog(message.guild.id, "warn", target.id, message.author.id, reason);
+    addModLog(message.guild.id, "warn", target.id, message.author.id, reason, null, {
+      channelId: message.channelId
+    });
 
     let dmStatus = "❌ Failed";
     try {
@@ -8044,7 +8068,9 @@ client.on("messageCreate", async message => {
       return message.reply({ embeds: [errorEmbed("I couldn't kick that user.")] });
     }
 
-    addModLog(message.guild.id, "kick", target.id, message.author.id, reason || "No reason provided");
+    addModLog(message.guild.id, "kick", target.id, message.author.id, reason || "No reason provided", null, {
+      channelId: message.channelId
+    });
     return message.reply({ embeds: [publicEmbed("👢 User Kicked", `${userMention(target.id)} was kicked.`, 0xED4245).addFields(
       { name: "👤 User", value: userMention(target.id), inline: true },
       { name: "👮 Moderator", value: userMention(message.author.id), inline: true },
@@ -8077,7 +8103,9 @@ client.on("messageCreate", async message => {
       return message.reply({ embeds: [errorEmbed("I couldn't ban that user.")] });
     }
 
-    addModLog(message.guild.id, "ban", targetId, message.author.id, reason);
+    addModLog(message.guild.id, "ban", targetId, message.author.id, reason, null, {
+      channelId: message.channelId
+    });
     const logResult = await sendBanLog(message.guild, targetId, target?.user || ban.user, message.author.id, reason);
     const response = publicEmbed("🔨 User Banned", `${userMention(targetId)} was banned from the server.`, 0xED4245);
     if (!logResult.sent) {
